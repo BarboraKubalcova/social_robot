@@ -1,0 +1,7 @@
+pyusb==1.0.2
+click==7.0
+speechrecognition
+python3-pyaudio
+pyttsx3
+flac
+sounddevice
