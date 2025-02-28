@@ -1,1 +1,9 @@
 output.wav
+llm_server/bin/
+llm_server/include/
+llm_server/lib/
+llm_server/lib64/
+llm_server/share/
+
+
+
