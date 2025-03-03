@@ -3,11 +3,12 @@ import pyttsx3
 import sounddevice
 import pyaudio
 import requests
+from tuning import Tuning
+import usb.core
+import usb.util
 
-# Function to convert text to
-# speech
+# Function to convert text to speech
 def SpeakText(command):
-    # Initialize the engine
     engine = pyttsx3.init()
     engine.say(command) 
     engine.runAndWait()
@@ -28,7 +29,6 @@ def get_llm_response(prompt):
     
     
 def get_speech(r, mic_id):
-        
     try:
         with sr.Microphone(device_index=mic_id) as source2:
             print("Listening...")
@@ -59,8 +59,8 @@ def get_mic_id():
     for i in range(0, numdevices):
             device_name = p.get_device_info_by_host_api_device_index(0, i).get('name')
             max_input_channel = p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')
-            # if max_input_channel > 0:
-            #     print(f"Input Device id {i} - {device_name}")
+            if max_input_channel > 0:
+                print(f"Input Device id {i} - {device_name}")
             if "ReSpeaker" in device_name and max_input_channel > 0:
                     mic_id = i
     if not mic_id:
@@ -68,16 +68,29 @@ def get_mic_id():
      
     return mic_id
 
-
+def get_sound_direction(dev):
+    direction = 0
+    if dev:
+        Mic_tuning = Tuning(dev)
+        direction = Mic_tuning.direction
+    return direction
+            
 
 def main():
-    r = sr.Recognizer() 
-    
+    print("Finding ReSpeker device...")
+    dev = usb.core.find(idVendor=0x2886, idProduct=0x0018)
+    print(f"Device info: {dev}")
+
     mic_id = get_mic_id() # also checks if mic is connected
     print(f"ReSpeaker microphone id is: {mic_id}")
-    text = get_speech(r, mic_id) 
-    response = get_llm_response(text)
-    print("LLM Response:", response)
+
+    soud_dir = get_sound_direction(dev)
+    print(f"Sound direciton: {soud_dir}")
+
+    r = sr.Recognizer() 
+    speech = get_speech(r, mic_id) 
+    # response = get_llm_response(speech)
+    # print("LLM Response:", response)
 
 
 if __name__ == "__main__":
