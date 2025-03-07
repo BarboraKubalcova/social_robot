@@ -48,7 +48,7 @@ def use_slovak_gpt(prompt):
     response = tokenizer.decode(output[0], skip_special_tokens=True)
     return response
 
-def use_slovak_bert(prompt):
+def use_slovak_bert(prompt, num_predictions = 5):
     model_name = "gerulata/slovakbert"
 
     # Load tokenizer and model
@@ -64,11 +64,35 @@ def use_slovak_bert(prompt):
         return f"Error: Your prompt must include {mask_token}."
 
     # Get predictions
-    predictions = fill_mask(prompt)
+    predictions = fill_mask(prompt, top_k = num_predictions)
 
     # Return the top predicted words
     return [pred["token_str"] for pred in predictions]
 
+
+def fill_last_word(prompt, n_preds=5):
+    model_name = "gerulata/slovakbert"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    mask_token = tokenizer.mask_token
+    if mask_token not in prompt:
+        return prompt
+    
+    last_word = prompt.split(" ")[-1]
+    prompt_with_mask = " ".join(prompt.split(' ')[:-1] + [mask_token])
+    predictions = use_slovak_bert(prompt_with_mask, num_predictions=n_preds)
+    fill = None
+    for word in predictions:
+        lw_len = len(last_word)
+        word = word.strip()
+        if last_word == word[:lw_len]:
+            fill = word 
+            break
+    if not fill:
+        fill = last_word
+    else:
+        print(f"Predictions from slovakBERT: {predictions}")
+    
+    return " ".join(prompt.split(' ')[:-1] + [fill])
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -79,32 +103,40 @@ def generate():
         return jsonify({"error": "Prompt is required"}), 400
 
     try:
-        print(f"Original input prompt: {prompt}")
-        prompt = translate_text(prompt, 
+        # original_prompt = "Aky je rozdiel medzi monitorom a po"
+        filled_prompt = fill_last_word(prompt)
+        
+        print(f"Original prompt: {prompt}")
+        print(f"Filled prompt: {filled_prompt}")
+        # print(f"Original input prompt: {prompt}")
+        prompt = translate_text(filled_prompt, 
                 source_lang="slovak", 
                 target_lang="english"
         )
         print(f"Translated prompt sk->eng: {prompt}")
-
+      
         generated_text = use_mistral(prompt)
-        
+
         print(f"Original generated text: {generated_text}")
         generated_text = translate_text(generated_text, 
             source_lang="english", 
             target_lang="slovak"
         )
         print(f"Translated generated text eng->sk: {generated_text}")
-
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
     return jsonify({"generated_text": generated_text})
 
+
+
 if __name__ == "__main__":
-    # app.run(host="0.0.0.0", port=5000, debug=True)  # Listen on all network interfaces
+    app.run(host="0.0.0.0", port=5000, debug=True)  # Listen on all network interfaces 
     # ans = use_slovak_gpt("Povedz mi vtip.")
-    ans = use_slovak_bert("Toto je <mask> deň.")
-    print(ans)
+    # ans = use_slovak_bert("Toto je <mask> deň.")
+    # print(ans)
+    
+
 
 # response = ollama.chat(model=model, messages=[
 # {

@@ -84,13 +84,13 @@ def main():
     mic_id = get_mic_id() # also checks if mic is connected
     print(f"ReSpeaker microphone id is: {mic_id}")
 
-    soud_dir = get_sound_direction(dev)
-    print(f"Sound direciton: {soud_dir}")
+    # soud_dir = get_sound_direction(dev)
+    # print(f"Sound direciton: {soud_dir}")
 
     r = sr.Recognizer() 
     speech = get_speech(r, mic_id) 
-    # response = get_llm_response(speech)
-    # print("LLM Response:", response)
+    response = get_llm_response(speech)
+    print("LLM Response:", response)
 
 
 if __name__ == "__main__":
@@ -99,4 +99,11 @@ if __name__ == "__main__":
 
 """
 https://wiki.seeedstudio.com/ReSpeaker_Mic_Array_v2.0/#extract-voice
+"""
+
+"""
+I can resolve that problem. First ejecute:
+sudo apt-get install portaudio19-dev
+Next, ejecute:
+pip install pyaudio
 """
