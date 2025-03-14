@@ -15,7 +15,7 @@ def SpeakText(command):
 
 
 def get_llm_response(prompt):
-    url = "http://localhost:5000/generate"
+    url = "http://192.168.10.219:5000/generate"
     headers = {"Content-Type": "application/json"}
     data = {"prompt": prompt}
     
@@ -89,8 +89,8 @@ def main():
 
     r = sr.Recognizer() 
     speech = get_speech(r, mic_id) 
-    # response = get_llm_response(speech)
-    # print("LLM Response:", response)
+    response = get_llm_response(speech)
+    print("LLM Response:", response)
 
 
 if __name__ == "__main__":
