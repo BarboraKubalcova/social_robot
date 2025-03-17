@@ -7,7 +7,6 @@ import torch
 app = Flask(__name__)
 
 
-
 def translate_text(text: str, source_lang = "slovak", target_lang = "english") -> str:
     translator = GoogleTranslator(
         source=source_lang, 
@@ -74,12 +73,13 @@ def fill_last_word(prompt, n_preds=5):
     model_name = "gerulata/slovakbert"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     mask_token = tokenizer.mask_token
-    if mask_token not in prompt:
-        return prompt
+    # if mask_token not in prompt:
+    #     return prompt
     
     last_word = prompt.split(" ")[-1]
     prompt_with_mask = " ".join(prompt.split(' ')[:-1] + [mask_token])
     predictions = use_slovak_bert(prompt_with_mask, num_predictions=n_preds)
+    
     fill = None
     for word in predictions:
         lw_len = len(last_word)
@@ -91,8 +91,8 @@ def fill_last_word(prompt, n_preds=5):
         fill = last_word
     else:
         print(f"Predictions from slovakBERT: {predictions}")
-    
-    return " ".join(prompt.split(' ')[:-1] + [fill])
+    new_prompt = " ".join(prompt.split(' ')[:-1] + [fill])
+    return (new_prompt, predictions)
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -104,7 +104,8 @@ def generate():
 
     try:
         # original_prompt = "Aky je rozdiel medzi monitorom a po"
-        filled_prompt = fill_last_word(prompt)
+
+        filled_prompt, _ = fill_last_word(prompt, 20)
         
         print(f"Original prompt: {prompt}")
         print(f"Filled prompt: {filled_prompt}")
@@ -135,7 +136,6 @@ if __name__ == "__main__":
     # ans = use_slovak_gpt("Povedz mi vtip.")
     # ans = use_slovak_bert("Toto je <mask> deň.")
     # print(ans)
-    
 
 
 # response = ollama.chat(model=model, messages=[
