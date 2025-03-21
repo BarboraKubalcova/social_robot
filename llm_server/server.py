@@ -1,98 +1,49 @@
-import ollama
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, AutoModelForMaskedLM
+import sys
+sys.path.insert(0, 'llm_models')
+sys.path.insert(0, 'rag')
+
 from flask import Flask, request, jsonify
-from deep_translator import GoogleTranslator
-import torch 
+import mistral
+import translation as tr
+import slovak_bert as sb
+import query_data as qd
+
 
 app = Flask(__name__)
 
+def fill(prompt):
+    filled_prompt, _ = sb.fill_last_word(prompt, n_preds=20)
+    print(f"Original prompt: {prompt}\nFilled prompt: {filled_prompt}")
+    return filled_prompt
 
-def translate_text(text: str, source_lang = "slovak", target_lang = "english") -> str:
-    translator = GoogleTranslator(
-        source=source_lang, 
-        target=target_lang
+def trasnlate(prompt, from_language, to_language):
+    prompt = tr.translate_text(prompt, 
+            source_lang=from_language, 
+            target_lang=to_language
     )
-    try:
-        translated_text = translator.translate(text)
-        return translated_text
-    except Exception as e:
-        return f"Translation error: {e}"
-    
-def use_mistral(prompt):
-    model_name = "mistral" 
-    response = ollama.chat(
-        model=model_name,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.get("message", {}).get("content", "")
-
-def use_slovak_gpt(prompt):
-    tokenizer = AutoTokenizer.from_pretrained("Milos/slovak-gpt-j-1.4B")
-    model = AutoModelForCausalLM.from_pretrained("Milos/slovak-gpt-j-1.4B").to("cuda" if torch.cuda.is_available() else "cpu")
-    
-    encoded_input = tokenizer(prompt, return_tensors='pt').to(model.device)
-    # output = model.generate(**encoded_input, max_length=50)
-    # Generate text with sampling
-    output = model.generate(
-        **encoded_input,
-        max_length=100,         # Increase length for better responses
-        do_sample=True,         # Enable sampling for diversity
-        temperature=0.7,        # Controls randomness (0.7-1.0 works well)
-        top_k=50,               # Consider only the top 50 words
-        top_p=0.9,              # Nucleus sampling (keep top 90% probability mass)
-        repetition_penalty=1.2, # Penalize repeating phrases
-        no_repeat_ngram_size=3, # Prevents repeating 3-word sequences
-        early_stopping=True     # Stop if EOS token is generated
-    )
-    response = tokenizer.decode(output[0], skip_special_tokens=True)
-    return response
-
-def use_slovak_bert(prompt, num_predictions = 5):
-    model_name = "gerulata/slovakbert"
-
-    # Load tokenizer and model
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForMaskedLM.from_pretrained(model_name)
-
-    # Create a fill-mask pipeline
-    fill_mask = pipeline("fill-mask", model=model, tokenizer=tokenizer)
-
-    # Ensure the correct mask token is used
-    mask_token = tokenizer.mask_token  # This is "<mask>"
-    if mask_token not in prompt:
-        return f"Error: Your prompt must include {mask_token}."
-
-    # Get predictions
-    predictions = fill_mask(prompt, top_k = num_predictions)
-
-    # Return the top predicted words
-    return [pred["token_str"] for pred in predictions]
+    print(f"Translated prompt {from_language}->{to_language}: {prompt}")
+    return prompt
 
 
-def fill_last_word(prompt, n_preds=5):
-    model_name = "gerulata/slovakbert"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    mask_token = tokenizer.mask_token
-    # if mask_token not in prompt:
-    #     return prompt
-    
-    last_word = prompt.split(" ")[-1]
-    prompt_with_mask = " ".join(prompt.split(' ')[:-1] + [mask_token])
-    predictions = use_slovak_bert(prompt_with_mask, num_predictions=n_preds)
-    
-    fill = None
-    for word in predictions:
-        lw_len = len(last_word)
-        word = word.strip()
-        if last_word == word[:lw_len]:
-            fill = word 
-            break
-    if not fill:
-        fill = last_word
-    else:
-        print(f"Predictions from slovakBERT: {predictions}")
-    new_prompt = " ".join(prompt.split(' ')[:-1] + [fill])
-    return (new_prompt, predictions)
+def use_llm(prompt):
+    # mozno sa neskor rozsiri funkcionalita    
+    generated_text = mistral.generate(prompt)
+    print(f"Original generated text: {generated_text}")
+    return generated_text
+
+
+def use_rag(question):
+    # mozno sa neskor rozsiri funkcionalita
+    res, sources = qd.query_rag(question)
+    print(f"Question: {question}\nAnswer: {res}")
+    return res
+
+def determine_context():
+    # rozhodovanie o pouzivani LLM alebo RAG modelu
+    # ak sa otazka zaobera zaobera vybranou domenou, tak sa pouzije RAG, 
+    # ak sa pouzivatel bude chciet len rozpravat, tak sa pouzije LLM  
+    return "RAG"
+
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -103,39 +54,29 @@ def generate():
         return jsonify({"error": "Prompt is required"}), 400
 
     try:
-        # original_prompt = "Aky je rozdiel medzi monitorom a po"
+        prompt = fill(prompt)  # Fill the last word of the prompt
+        prompt = trasnlate(prompt, "slovak", "english")  
 
-        filled_prompt, _ = fill_last_word(prompt, 20)
-        
-        print(f"Original prompt: {prompt}")
-        print(f"Filled prompt: {filled_prompt}")
-        # print(f"Original input prompt: {prompt}")
-        prompt = translate_text(filled_prompt, 
-                source_lang="slovak", 
-                target_lang="english"
-        )
-        print(f"Translated prompt sk->eng: {prompt}")
-      
-        generated_text = use_mistral(prompt)
+        if determine_context() == "RAG":
+            generated_text = use_rag(prompt)
+        elif determine_context() == "LLM":
+            generated_text = use_llm(prompt)
+        else:
+            generated_text = "Sorry, Can you repeat that?"
 
-        print(f"Original generated text: {generated_text}")
-        generated_text = translate_text(generated_text, 
-            source_lang="english", 
-            target_lang="slovak"
-        )
-        print(f"Translated generated text eng->sk: {generated_text}")
+        generated_text = trasnlate(generated_text, "english", "slovak")
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     return jsonify({"generated_text": generated_text})
 
 
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)  # Listen on all network interfaces 
-    # ans = use_slovak_gpt("Povedz mi vtip.")
+    # ans = use_slovak_llm("Prečo je nebo modré?")
     # ans = use_slovak_bert("Toto je <mask> deň.")
     # print(ans)
+    
 
 
 # response = ollama.chat(model=model, messages=[
