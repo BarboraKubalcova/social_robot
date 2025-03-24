@@ -19,8 +19,15 @@ prompts_rag = [
     "Aké sú kľúčové komponenty systému RAG?"
 ]
 
+prompts_mml = [
+    "Čo sú to eigenvalues a ako sa počítajú?",
+    "Ako funguje algoritmus k-means?",
+    "Čo je to gradient descent?",
+    "Aký je rozdiel medzi supervised a unsupervised learning?",
+    "Ako funguje PCA?",
+]
 
-def get_llm_response(prompt):
+def get_response(prompt):
     url = "http://localhost:5000/generate"
     headers = {"Content-Type": "application/json"}
     data = {"prompt": prompt}
@@ -35,14 +42,10 @@ def get_llm_response(prompt):
 
 
 if __name__ == "__main__":
-    # prompt = input("Enter your prompt: ")
-
-    # start_time = time.time()
-    # for prompt in prompts_llm:
-    #     response = get_llm_response(prompt)
-    #     print("LLM Response:", response)
-    # print(f"Time of responce ({len(prompts_llm)} prompts): {(time.time() - start_time):.4f} sec")]
-    prompt = prompts_rag[1]
-    response = get_llm_response(prompt)
-    print("LLM Response:", response)
+    while True:
+        prompt = input("\033[92m"+ "Študent: " + "\033[0m")
+        start_time = time.time()
+        response = get_response(prompt)
+        print("\033[91m"+ "AI: " + "\033[0m" + response)
+        print(f"Odpoveď trvala {(time.time() - start_time):.4f} sekúnd")
 

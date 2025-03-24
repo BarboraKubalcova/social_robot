@@ -7,4 +7,3 @@ def generate(prompt):
         messages=[{"role": "user", "content": prompt}]
     )
     return response.get("message", {}).get("content", "")
-

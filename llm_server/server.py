@@ -7,13 +7,15 @@ import mistral
 import translation as tr
 import slovak_bert as sb
 import query_data as qd
+from langchain_community.llms.ollama import Ollama
 
-
+model = Ollama(model="mistral")
 app = Flask(__name__)
 
 def fill(prompt):
     filled_prompt, _ = sb.fill_last_word(prompt, n_preds=20)
-    print(f"Original prompt: {prompt}\nFilled prompt: {filled_prompt}")
+    print("\033[91m"+ f"Original prompt: {prompt}" + "\033[0m")
+    print(f"Filled prompt: {filled_prompt}")
     return filled_prompt
 
 def trasnlate(prompt, from_language, to_language):
@@ -34,16 +36,23 @@ def use_llm(prompt):
 
 def use_rag(question):
     # mozno sa neskor rozsiri funkcionalita
-    res, sources = qd.query_rag(question)
+    res, sources = qd.query_rag(question, model)
     print(f"Question: {question}\nAnswer: {res}")
     return res
 
-def determine_context():
+
+def choose_model(query_text):
     # rozhodovanie o pouzivani LLM alebo RAG modelu
     # ak sa otazka zaobera zaobera vybranou domenou, tak sa pouzije RAG, 
     # ak sa pouzivatel bude chciet len rozpravat, tak sa pouzije LLM  
-    return "RAG"
-
+    use_rag = qd.is_answer_in_database(query_text)
+    if use_rag:
+        print("\033[92m" + "Ansvering with RAG" + "\033[0m")
+        return "RAG"
+    else:
+        print("\033[92m" + "Ansvering with LLM" + "\033[0m")
+        return "LLM"
+    
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -56,14 +65,7 @@ def generate():
     try:
         prompt = fill(prompt)  # Fill the last word of the prompt
         prompt = trasnlate(prompt, "slovak", "english")  
-
-        if determine_context() == "RAG":
-            generated_text = use_rag(prompt)
-        elif determine_context() == "LLM":
-            generated_text = use_llm(prompt)
-        else:
-            generated_text = "Sorry, Can you repeat that?"
-
+        generated_text = use_rag(prompt) if choose_model(prompt) == "RAG" else use_llm(prompt)
         generated_text = trasnlate(generated_text, "english", "slovak")
         
     except Exception as e:
