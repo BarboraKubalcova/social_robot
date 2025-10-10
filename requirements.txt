@@ -1,5 +1,5 @@
 pypdf
-langchain
+langchain~=0.3.27
 chromadb
 pytest
 boto3
@@ -7,4 +7,13 @@ sentence-transformers
 pyaudio
 SpeechRecognition
 deep-translator
-pyttsx3
+pyttsx3~=2.99
+
+requests~=2.32.5
+ollama~=0.6.0
+torch~=2.8.0
+transformers~=4.56.2
+Flask~=3.1.2
+uvicorn~=0.37.0
+fastapi~=0.118.0
+pydantic~=2.11.9
