@@ -8,7 +8,7 @@ from get_embedding_function import get_embedding_function
 from langchain.vectorstores.chroma import Chroma
 
 
-CHROMA_PATH = "chroma"
+CHROMA_PATH = "../chroma"
 DATA_PATH = "data"
 
 

@@ -1,6 +1,8 @@
 import requests
 import time
 import pyttsx3
+import threading
+import keyboard
 import speech_recognition as sr
 
 # questions = [
@@ -17,67 +19,51 @@ import speech_recognition as sr
 # ]
 
 questions = [
-    "What is Retrieval-Augmented Generation (RAG) and how does it enhance AI-Generated Content?",
+    "How does reinforcement learning contribute to adaptive human–robot interaction?",
     "What was the previous question?"
 ]
 
 session_id = "session_1"  # shared conversation
-
-# Initialize TTS engine
-engine = pyttsx3.init()
-voices = engine.getProperty("voices")
-engine.setProperty("volume", 1.0)  # volume [0.0, 1.0]
-engine.setProperty("voice", voices[0].id)
-engine.setProperty("rate", 200)
+stop_speech = threading.Event()
 
 
-def speak(text: str):
-    """Convert text to speech."""
-    engine.say(text)
-    engine.runAndWait()
-    # for voice in voices:
-    #     engine.setProperty('voice', voice.id)
-    #     print(voice.id)
-    #     engine.say('The quick brown fox jumped over the lazy dog.')
-    # engine.runAndWait()
+def speak(text: str, stop_key: str = "space"):
+    """Speak text with interruption on key press."""
+    stop_speech.clear()
 
+    def _speak():
+        engine = pyttsx3.init()
+        engine.setProperty("rate", 170)
+        engine.setProperty("volume", 1.0)
 
-def speech_to_text(mic, recognizer, timeout: int = 5, phrase_time_limit: int = 60,
-                   language: str = "en-US") -> str | None:
-    with mic as source:
-        print("🎤 Listening... (say something)")
-        recognizer.adjust_for_ambient_noise(source, duration=0.6)
+        def check_keypress():
+            while not stop_speech.is_set():
+                if keyboard.is_pressed(stop_key):
+                    print(f"🛑 Speech interrupted by '{stop_key}' key.")
+                    stop_speech.set()
+                    engine.stop()
+                    break
+                time.sleep(0.05)  # small delay to avoid CPU load
+
+        # Start key listener
+        key_thread = threading.Thread(target=check_keypress, daemon=True)
+        key_thread.start()
+
         try:
-            audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-        except sr.WaitTimeoutError:
-            print("⏰ Listening timed out while waiting for speech.")
-            return None
+            engine.say(text)
+            engine.runAndWait()  # blocks until done or stopped
+        except RuntimeError:
+            # happens if stopped mid-speech
+            pass
+        finally:
+            engine.stop()
 
-    try:
-        text = recognizer.recognize_google(audio, language=language)
-        return text.lower()
-    except sr.UnknownValueError:
-        print("Sorry, could not understand audio.")
-    except sr.RequestError as e:
-        print(f"Error with the speech recognition service; {e}")
-
-    return None
+    t = threading.Thread(target=_speak)
+    t.start()
+    t.join()  # wait until speaking (or interrupted) finishes
 
 
-
-def main():
-    # for question in questions:
-    #     print(f"Question: {question}")
-    #     start_time = time.time()
-    #     resp = requests.post(
-    #         "http://127.0.0.1:8000/search_docs",
-    #         json={"query": question, "session_id": session_id}
-    #     )
-    #     print(f"mcp speed: {(time.time() - start_time)}s")
-    #     answer = resp.json()["answer"]
-    #     print(answer)
-    #     speak(answer)
-
+def main_voice_loop():
     language = "sk-SK"
     recognizer = sr.Recognizer()
     mic = sr.Microphone()
@@ -130,6 +116,22 @@ def main():
 
         # Small delay between cycles
         time.sleep(0.3)
+
+
+def main():
+    for question in questions:
+        print(f"Question: {question}")
+        start_time = time.time()
+        resp = requests.post(
+            "http://127.0.0.1:8000/search_docs",
+            json={"query": question, "session_id": session_id}
+        )
+        print(f"mcp speed: {(time.time() - start_time)}s")
+        answer = resp.json()["answer"]
+        print(answer)
+        speak(answer)
+
+    # main_voice_loop()
 
 
 if __name__ == "__main__":
