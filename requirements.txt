@@ -4,3 +4,7 @@ chromadb
 pytest
 boto3
 sentence-transformers
+pyaudio
+SpeechRecognition
+deep-translator
+pyttsx3
