@@ -13,16 +13,14 @@ conversation_history = []
 
 CHROMA_PATH = "chroma"
 PROMPT_TEMPLATE = """
-Previous conversation: 
-{history}
-
-Answer the question based only on the following context:
-
-{context}
-
----
-
-Answer the question based on the above context and previous conversation: {question}
+    Answer the question based on the following context:
+    {context}
+    
+    Previous conversation: 
+    {history}
+    
+    ---
+    Answer the question based on the above context and previous conversation: {question}
 """
 
 # LLM call
