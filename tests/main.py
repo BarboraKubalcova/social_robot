@@ -39,7 +39,7 @@ def speak(text: str, stop_key: str = "space"):
         def check_keypress():
             while not stop_speech.is_set():
                 if keyboard.is_pressed(stop_key):
-                    print(f"🛑 Speech interrupted by '{stop_key}' key.")
+                    print(f"Speech interrupted by '{stop_key}' key.")
                     stop_speech.set()
                     engine.stop()
                     break
@@ -60,11 +60,11 @@ def speak(text: str, stop_key: str = "space"):
 
     t = threading.Thread(target=_speak)
     t.start()
-    t.join()  # wait until speaking (or interrupted) finishes
+    t.join()
 
 
-def main_voice_loop():
-    language = "sk-SK"
+def main_voice_loop(language="sk-SK"):
+
     recognizer = sr.Recognizer()
     mic = sr.Microphone()
 
@@ -131,7 +131,7 @@ def main():
         print(answer)
         speak(answer)
 
-    # main_voice_loop()
+    # main_voice_loop(language="en-US")
 
 
 if __name__ == "__main__":
