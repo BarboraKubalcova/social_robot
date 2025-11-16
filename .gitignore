@@ -1,10 +1,10 @@
 output.wav
-server/bin/
-server/include/
-server/lib/
-server/share/
-server/pyvenv.cfg
-server/lib64
+sk_server_client/bin/
+sk_server_client/include/
+sk_server_client/lib/
+sk_server_client/share/
+sk_server_client/pyvenv.cfg
+sk_server_client/lib64
 speech_recognition/.venv
 speech_recognition/__pycache__
 env

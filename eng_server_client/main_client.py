@@ -119,19 +119,19 @@ def main_voice_loop(language="sk-SK"):
 
 
 def main():
-    for question in questions:
-        print(f"Question: {question}")
-        start_time = time.time()
-        resp = requests.post(
-            "http://127.0.0.1:8000/search_docs",
-            json={"query": question, "session_id": session_id}
-        )
-        print(f"mcp speed: {(time.time() - start_time)}s")
-        answer = resp.json()["answer"]
-        print(answer)
-        speak(answer)
+    # for question in questions:
+    #     print(f"Question: {question}")
+    #     start_time = time.time()
+    #     resp = requests.post(
+    #         "http://127.0.0.1:8000/search_docs",
+    #         json={"query": question, "session_id": session_id}
+    #     )
+    #     print(f"mcp speed: {(time.time() - start_time)}s")
+    #     answer = resp.json()["answer"]
+    #     print(answer)
+    #     speak(answer)
 
-    # main_voice_loop(language="en-US")
+    main_voice_loop(language="en-US")
 
 
 if __name__ == "__main__":
