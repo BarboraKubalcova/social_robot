@@ -17,12 +17,6 @@ some of the underlying principles. Below is an overview of how to run the most i
 Wait until the ambient-noise threshold is set. After the terminal prompts you, you can ask your first question.  
 Say **“stop”** to terminate the script.
 
-### AI Agents
-Separately from the voice interaction module, simple AI agents were implemented to control a “slider,” 
-which acts as a hardware simulation.
-
-Start the slider API in the first terminal. Once running, the slider interface will be available on the local host, 
-where you can observe the values being set:
 ```
 python3 eng_server_client/prepare_rag/populate_database.py
 ```
@@ -39,12 +33,12 @@ python3 eng_server_client/main_client.py
 Wait until the threshold for ambient noise is set, and after the prompt in terminal you can ask the first question. 
 You can stop the script by saying the word “stop.”
 
-### AI agents
-Independently of the voice interactions, simple AI agents were also implemented to plan the control of a “slider” 
-(which serves as a hardware imitation). 
+### AI Agents
+Separately from the voice interaction module, simple AI agents were implemented to control a “slider,” 
+which acts as a hardware simulation.
 
-In the first terminal, we start the slider API. Once it loads, we can view the slider on the local host and monitor 
-the values we set on it.
+Start the slider API in the first terminal. Once running, the slider interface will be available on the local host, 
+where you can observe the values being set:
 ```
 python3 ai_agents/slider_server.py
 ```
