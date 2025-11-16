@@ -11,13 +11,13 @@ Actual Response: {actual_response}
 """
 
 
-def test_HRI():
+def HRI_script():
     questions = QnA.questions_HRI
     for key, value in questions.items():
         query_and_validate(question=value["Q"], expected_response=value["Ans"])
 
 
-def test_RAG():
+def RAG_script():
     questions = QnA.questions_RAG
     for key, value in questions.items():
         query_and_validate(question=value["Q"], expected_response=value["Ans"])
@@ -48,5 +48,5 @@ def query_and_validate(question: str, expected_response: str):
             f"Invalid evaluation result. Cannot determine if 'true' or 'false'."
         )
 
-test_HRI()
-test_RAG()
+HRI_script()
+RAG_script()
