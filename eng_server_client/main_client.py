@@ -102,8 +102,10 @@ def main_voice_loop(language="sk-SK"):
             print(f"mcp speed: {(time.time() - start_time)}s")
             answer = resp.json()["answer"]
             sources = resp.json()["sources"]
+            mode = resp.json()["mode"]
             print(f"Answer is: {answer}")
-            print(f"Sources are: {sources}")
+            # print(f"Sources are: {sources}")
+            print(f"Mode: {mode}\n")
 
             speak(answer)
 
