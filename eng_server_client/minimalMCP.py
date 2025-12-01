@@ -49,7 +49,8 @@ Question: {question}
 """
 
 # LLM call
-model = OllamaLLM(model="mistral")
+# https://ollama.com/library/qwen3
+model = OllamaLLM(model="qwen3:8b")
 
 
 # ---------------------------
