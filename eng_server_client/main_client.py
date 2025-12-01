@@ -120,6 +120,42 @@ def main_voice_loop(language="sk-SK"):
         time.sleep(0.3)
 
 
+def main_keyboard_loop():
+    print("Ready — type your query (or 'stop' to quit).\n")
+
+    while True:
+        try:
+            text = input("You: ").strip()
+            if not text:
+                continue
+
+            text = text.lower()
+            if text == "stop":
+                print("Stopping.")
+                break
+
+            start_time = time.time()
+            resp = requests.post(
+                "http://127.0.0.1:8000/search_docs",
+                json={"query": text, "session_id": session_id}
+            )
+            print(f"mcp speed: {(time.time() - start_time)}s")
+
+            data = resp.json()
+            answer = data.get("answer")
+            sources = data.get("sources")
+            mode = data.get("mode")
+
+            print(f"Answer is: {answer}")
+            # print(f"Sources are: {sources}")
+            print(f"Mode: {mode}\n")
+
+        except Exception as e:
+            print(f"⚠ Unexpected error: {e}")
+
+        time.sleep(0.3)
+
+
 def main():
     # for question in questions:
     #     print(f"Question: {question}")
@@ -133,8 +169,8 @@ def main():
     #     print(answer)
     #     speak(answer)
 
-    main_voice_loop(language="en-US")
-
+    # main_voice_loop(language="en-US")
+    main_keyboard_loop()
 
 if __name__ == "__main__":
     main()
