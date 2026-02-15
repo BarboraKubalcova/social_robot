@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "healthcare-agent"
+version = "0.1.0"
+description = "A healthcare agent with chat, RAG, and action capabilities."
+authors = [
+    { name = "Antigravity", email = "antigravity@example.com" }
+]
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "python-multipart",
+    "requests",
+    "jinja2",
+    "langchain",
+    "langchain-ollama",
+    "langchain-chroma",
+    "sentence-transformers",
+    "pdfminer.six",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx",
+]

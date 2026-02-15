@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Healthcare Assistant</h1>
+            <p>Here to help with your questions and appointments.</p>
+        </header>
+
+        <div id="chat-window">
+            <div id="messages">
+                <!-- Messages will appear here -->
+                <div class="message assistant">
+                    Hello! How can I help you today?
+                </div>
+            </div>
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
+            <button id="send-btn">Send</button>
+            <button id="mic-btn">Microphone</button>
+        </div>
+
+        <div id="debug-panel">
+            <h3>Debug Info</h3>
+            <pre id="debug-content"></pre>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
