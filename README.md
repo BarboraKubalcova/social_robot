@@ -8,6 +8,12 @@ such as LLMs, RAG, and AI agents.
 pip install -r requirements.txt
 ```
 
+Models which were used in this implementation:
+```
+ollama pull qwen3:latest
+ollama pull mistral:latest 
+```
+
 ## Running Scripts
 At the moment, the codebase is divided into several parts (this will change in the future). 
 The repository also contains scripts from earlier phases of the thesis, which were used only to verify 
