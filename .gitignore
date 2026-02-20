@@ -8,3 +8,4 @@ sk_server_client/lib64
 speech_recognition/.venv
 speech_recognition/__pycache__
 env
+.venv

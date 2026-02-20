@@ -1,0 +1,7 @@
+# Databases / vector stores
+chroma_db/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/

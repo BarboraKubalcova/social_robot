@@ -1,16 +1,18 @@
+import os
 from typing import Dict, List, Tuple, Optional
 from langchain_chroma import Chroma
 # from langchain.prompts import ChatPromptTemplate
 from langchain_core.prompts import ChatPromptTemplate
 from execution.rag.get_embedding_function import get_embedding_function
 
-CHROMA_PATH = "../../chroma"
+CHROMA_PATH = "chroma_db/"
+DEFAULT_RAG_SIMILARITY_THRESHOLD = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "1.4"))
 
 RAG_PROMPT_TEMPLATE = """
 You are an assistant with access to a knowledge base.
 
 Use the following context from the database to answer the question.
-If the context does not contain the answer, say thast you don't know.
+If the context does not contain the answer, say that you don't know.
 
 Context:
 {context}
@@ -49,6 +51,16 @@ class Retriever:
         Returns: (prompt_template, prompt_kwargs, mode)
         """
         results = self.db.similarity_search_with_score(query_text, k=5)
+        
+        # Debug logging
+        if results:
+            best_doc, best_score = results[0]
+            print(f"[RAG DEBUG] Query: '{query_text}'")
+            print(
+                f"[RAG DEBUG] Best score: {best_score:.4f}, "
+                f"Threshold: {DEFAULT_RAG_SIMILARITY_THRESHOLD:.4f}"
+            )
+            print(f"[RAG DEBUG] Found {len(results)} results")
 
         mode, prompt_template, context_text = self._decide_mode(query_text, history_text, results)
 
@@ -65,14 +77,17 @@ class Retriever:
         """
         Decide whether to use RAG or pure LLM based on similarity scores.
         """
-        similarity_threshold = 1.0 # Adjust as needed
+        similarity_threshold = DEFAULT_RAG_SIMILARITY_THRESHOLD
 
         if not results:
              return "llm_only", ChatPromptTemplate.from_template(NO_CONTEXT_PROMPT_TEMPLATE), ""
 
         # Check best score
         best_doc, best_score = results[0]
-        # print(f"Best score: {best_score}")
+        print(
+            f"[RAG DEBUG] Mode decision: score {best_score:.4f} < "
+            f"{similarity_threshold:.4f} => {best_score < similarity_threshold}"
+        )
 
         if best_score < similarity_threshold:
             mode = "rag"
