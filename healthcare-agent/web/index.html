@@ -2,40 +2,60 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Healthcare Assistant</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Healthcare Assistant</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
+  <div class="page">
     <div class="container">
-        <header>
-            <h1>Healthcare Assistant</h1>
-            <p>Here to help with your questions and appointments.</p>
-        </header>
+      <header class="app-header">
+        <div class="title-wrap">
+          <h1>Healthcare Assistant</h1>
+          <p>Here to help with your questions and appointments.</p>
+        </div>
+        <div class="status-pill" aria-label="status">
+          <span class="dot"></span>
+          <span>Online</span>
+        </div>
+      </header>
 
-        <div id="chat-window">
-            <div id="messages">
-                <!-- Messages will appear here -->
-                <div class="message assistant">
-                    Hello! How can I help you today?
-                </div>
-            </div>
+      <main class="chat-card">
+        <!-- Make THIS the scroll container -->
+        <div id="chat-window" class="chat-window" aria-label="chat messages">
+          <div id="messages" class="messages">
+            <div class="message assistant">Hello! How can I help you today?</div>
+          </div>
         </div>
 
-        <div id="input-area">
-            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
-            <button id="send-btn">Send</button>
-            <button id="mic-btn">Microphone</button>
+        <div id="input-area" class="input-area">
+          <div class="input-shell">
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" />
+          </div>
+
+          <button id="mic-btn" class="btn btn-ghost" type="button" title="Speak">
+            🎙️
+          </button>
+
+          <button id="send-btn" class="btn btn-primary" type="button" title="Send">
+            Send
+          </button>
         </div>
 
-        <div id="debug-panel">
-            <h3>Debug Info</h3>
-            <pre id="debug-content"></pre>
-        </div>
+        <section id="debug-panel" class="debug-panel" aria-label="debug panel">
+          <div class="debug-header">
+            <h3>Debug</h3>
+            <span class="debug-hint">intent + history length</span>
+          </div>
+          <pre id="debug-content"></pre>
+        </section>
+      </main>
     </div>
-    <script src="app.js"></script>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 
 </html>

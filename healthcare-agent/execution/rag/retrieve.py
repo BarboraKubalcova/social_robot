@@ -7,37 +7,41 @@ from execution.rag.get_embedding_function import get_embedding_function
 
 CHROMA_PATH = "chroma_db/"
 DEFAULT_RAG_SIMILARITY_THRESHOLD = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "1.4"))
+DEFAULT_RAG_TOP_K = int(os.getenv("RAG_TOP_K", "3"))
 
 RAG_PROMPT_TEMPLATE = """
 You are an assistant with access to a knowledge base.
 
-Use the following context from the database to answer the question.
-If the context does not contain the answer, say that you don't know.
+Use the DATABASE CONTEXT to answer the user's question.
+Use the conversation history ONLY to resolve references (e.g., "that", "it", "the appointment we discussed").
+Do NOT answer old questions from the history unless the user explicitly asks again.
 
-Context:
+DATABASE CONTEXT:
 {context}
 
-Previous conversation:
+CONVERSATION HISTORY (for reference resolution only):
 {history}
 
----
-Answer the question based on the above context and previous conversation.
-
 Question: {question}
+
+Answer:
 """
 
 NO_CONTEXT_PROMPT_TEMPLATE = """
 You are an assistant with access to a document database.
 
-For this question, the similarity search did not find any sufficiently relevant documents.
-First, explicitly say that the requested information is not present in the database.
-Then, answer the question using your general knowledge.
-If you don't know the answer, say that you don't know.
+The similarity search did not find any sufficiently relevant documents for this question.
+1) Say explicitly that the requested information is not present in the database.
+2) Then answer using general knowledge, if possible.
+3) If you don't know, say you don't know.
 
-Previous conversation:
+(Use conversation history only to resolve references, not as a knowledge source.)
+History:
 {history}
 
 Question: {question}
+
+Answer:
 """
 
 class Retriever:
@@ -50,7 +54,7 @@ class Retriever:
         Search for documents and build the appropriate prompt.
         Returns: (prompt_template, prompt_kwargs, mode)
         """
-        results = self.db.similarity_search_with_score(query_text, k=5)
+        results = self.db.similarity_search_with_score(query_text, k=DEFAULT_RAG_TOP_K)
         
         # Debug logging
         if results:
@@ -98,3 +102,11 @@ class Retriever:
             mode = "llm_only"
             prompt_template = ChatPromptTemplate.from_template(NO_CONTEXT_PROMPT_TEMPLATE)
             return mode, prompt_template, ""
+
+
+"""
+Poznamky: 
+pri AI agentoch nie je dobre mat historiu chatu v prompte, lebo sa to potom rekurzivne cykli 
+kvoli tomu, ze v historii su dalsie otazky a odpovede, ktore sa potom znovu posielaju do RAGu a ten ich zase vracia do promptu atd.
+
+"""

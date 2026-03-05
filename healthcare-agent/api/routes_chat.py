@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from api.auth import get_current_user
 from orchestration.manager import AgentManager
+from orchestration.manager_deterministic import DeterministicAgentManager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 # Singleton manager
 agent_manager = AgentManager()
+# deterministic_manager = DeterministicAgentManager()
 
 class ChatRequest(BaseModel):
     message: str
