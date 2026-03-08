@@ -1,5 +1,4 @@
-from calendar import monthrange
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional, Tuple
 import logging
 
@@ -7,13 +6,21 @@ logger = logging.getLogger("Appointments")
 
 
 class AppointmentManager:
-    def __init__(self, year: Optional[int] = None, month: Optional[int] = None):
-        now = datetime.now()
-        self.year = year or now.year
-        self.month = month or now.month
+    def __init__(
+        self,
+        start_date: Optional[date] = None,
+        num_days: int = 3,
+    ):
+        # Static start date: 1 June 2026
+        self.start_date = start_date or date(2026, 6, 1)
+        self.num_days = num_days
 
-        # Columns are times, rows are days in month.
-        # Example: table[0][0] == day 1, first slot "07:30".
+        print(
+            f"AppointmentManager initialized from {self.start_date.isoformat()} "
+            f"for {self.num_days} days"
+        )
+
+        # Columns are times, rows are generated days from start_date
         self.time_columns: List[str] = [
             "07:30",
             "08:30",
@@ -26,10 +33,9 @@ class AppointmentManager:
             "16:00",
         ]
 
-        self.days_in_month = monthrange(self.year, self.month)[1]
         self.table: List[List[Optional[str]]] = [
             [None for _ in self.time_columns]
-            for _ in range(self.days_in_month)
+            for _ in range(self.num_days)
         ]
 
         self._appointment_counter = 1
@@ -53,23 +59,37 @@ class AppointmentManager:
         day_index = zero_based // columns
         time_index = zero_based % columns
 
-        if day_index < 0 or day_index >= self.days_in_month:
+        if day_index < 0 or day_index >= self.num_days:
             return None
+
         return day_index, time_index
 
     def _slot_datetime(self, day_index: int, time_index: int) -> datetime:
+        slot_date = self.start_date + timedelta(days=day_index)
         hour, minute = map(int, self.time_columns[time_index].split(":"))
-        return datetime(self.year, self.month, day_index + 1, hour, minute)
+        return datetime(slot_date.year, slot_date.month, slot_date.day, hour, minute)
 
     def _is_in_range(self, slot_dt: datetime, date_range: Optional[tuple]) -> bool:
         if not date_range:
             return True
+
         start, end = date_range
         if isinstance(start, str):
             start = datetime.fromisoformat(start)
         if isinstance(end, str):
             end = datetime.fromisoformat(end)
+
         return start <= slot_dt <= end
+
+    def _slot_metadata(self, day_index: int, time_index: int) -> Dict:
+        slot_dt = self._slot_datetime(day_index, time_index)
+        return {
+            "day": slot_dt.strftime("%A").lower(),
+            "day_of_month": slot_dt.day,
+            "date": slot_dt.date().isoformat(),
+            "time": slot_dt.strftime("%H:%M"),
+            "datetime": slot_dt.isoformat(),
+        }
 
     def list_available_slots(self, date_range: tuple = None) -> List[Dict]:
         """Return currently free slots from the timetable."""
@@ -86,11 +106,12 @@ class AppointmentManager:
                     continue
 
                 slot_number = day_index * columns + time_index + 1
+                meta = self._slot_metadata(day_index, time_index)
+
                 available.append(
                     {
                         "id": f"slot_{slot_number}",
-                        "day": day_index + 1,
-                        "time": slot_dt.isoformat(),
+                        **meta,
                     }
                 )
 
@@ -112,13 +133,13 @@ class AppointmentManager:
             appointment_id = f"appt_{self._appointment_counter}"
             self._appointment_counter += 1
 
-            slot_dt = self._slot_datetime(day_index, time_index)
             self.table[day_index][time_index] = appointment_id
+            meta = self._slot_metadata(day_index, time_index)
+
             self._appointments[appointment_id] = {
                 "id": appointment_id,
                 "slot_id": slot_id,
-                "day": day_index + 1,
-                "time": slot_dt.isoformat(),
+                **meta,
             }
 
             logger.info("Booked %s for slot %s", appointment_id, slot_id)
@@ -149,7 +170,10 @@ class AppointmentManager:
         """Move an existing appointment to a new free slot."""
         appointment = self._appointments.get(appointment_id)
         if appointment is None:
-            logger.info("Appointment not found for reschedule, booking new slot: %s", appointment_id)
+            logger.info(
+                "Appointment not found for reschedule, booking new slot: %s",
+                appointment_id,
+            )
             return self.book_appointment(new_slot_id)
 
         new_position = self._slot_position(new_slot_id)
@@ -171,17 +195,17 @@ class AppointmentManager:
         self.table[old_day_index][old_time_index] = None
         self.table[new_day_index][new_time_index] = appointment_id
 
-        new_dt = self._slot_datetime(new_day_index, new_time_index)
+        meta = self._slot_metadata(new_day_index, new_time_index)
         appointment["slot_id"] = new_slot_id
-        appointment["day"] = new_day_index + 1
-        appointment["time"] = new_dt.isoformat()
+        appointment.update(meta)
+
         logger.info("Rescheduled appointment %s to slot %s", appointment_id, new_slot_id)
         return True
-    
+
     def get_patient_appointments(self) -> List[Dict]:
         """Get all appointments for the single patient."""
-        return sorted(self._appointments.values(), key=lambda item: item["time"])
+        return sorted(self._appointments.values(), key=lambda item: item["datetime"])
 
     def get_timetable(self) -> List[List[Optional[str]]]:
-        """Return the timetable matrix (rows=days, columns=times)."""
+        """Return the timetable matrix (rows=generated days, columns=times)."""
         return [row[:] for row in self.table]

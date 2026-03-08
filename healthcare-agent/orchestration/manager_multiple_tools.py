@@ -17,7 +17,7 @@ from execution.actions.messaging import MessageManager
 from contextlib import contextmanager
 
 
-logger = logging.getLogger("AgentManager")
+logger = logging.getLogger("AgentManagerMultiTools")
 checkpointer = InMemorySaver()
 
 
@@ -45,13 +45,18 @@ Rules:
 - Keep responses concise and helpful.
 
 Tool guide:
-- ACTION: appointments, slots, messages, email
+- LIST_SLOTS: show available appointment slots
+- LIST_APPOINTMENTS: show booked appointments
+- BOOK_APPOINTMENT: book an appointment slot
+- CANCEL_APPOINTMENT: cancel an existing appointment
+- RESCHEDULE_APPOINTMENT: move an appointment to a new slot
+- SEND_DOCTOR_MESSAGE: send a message/email to a doctor
 - RAG: clinic knowledge, procedures, policies, preparation
 - LLM: greetings, empathy, casual chat, general questions
 """
 
 
-class AgentManager:
+class AgentManagerMultiTools:
     """
     Agent-based healthcare assistant using exactly one tool per request.
     """
@@ -89,14 +94,52 @@ class AgentManager:
                 func=self._llm_tool_func,
             ),
             Tool(
-                name="ACTION",
+                name="LIST_SLOTS",
                 description=(
-                    "Use for operations: booking, canceling, rescheduling appointments, "
-                    "listing slots, listing appointments, or sending a doctor message. "
-                    "If the user gives an exact time instead of a slot id, interpret it from "
-                    "the available slot order when possible."
+                    "Use when the user wants to see available slots or asks when they can come, "
+                    "what appointments are available, or to show/list slots."
                 ),
-                func=self._action_tool_func,
+                func=self._list_slots_tool_func,
+            ),
+            Tool(
+                name="LIST_APPOINTMENTS",
+                description=(
+                    "Use when the user wants to see their current booked appointments."
+                ),
+                func=self._list_appointments_tool_func,
+            ),
+            Tool(
+                name="BOOK_APPOINTMENT",
+                description=(
+                    "Use when the user wants to book an appointment. "
+                    "If the user mentions a slot id like slot_3, use it. "
+                    "If the user mentions a day instead of a slot id, infer a matching slot when possible."
+                ),
+                func=self._book_appointment_tool_func,
+            ),
+            Tool(
+                name="CANCEL_APPOINTMENT",
+                description=(
+                    "Use when the user wants to cancel an existing appointment. "
+                    "If the user mentions an appointment id like appt_2, use it. "
+                    "If no id is given, infer the target appointment when possible."
+                ),
+                func=self._cancel_appointment_tool_func,
+            ),
+            Tool(
+                name="RESCHEDULE_APPOINTMENT",
+                description=(
+                    "Use when the user wants to move, change, rebook, or reschedule an appointment. "
+                    "Infer the current appointment and new slot/day when possible."
+                ),
+                func=self._reschedule_appointment_tool_func,
+            ),
+            Tool(
+                name="SEND_DOCTOR_MESSAGE",
+                description=(
+                    "Use when the user wants to send a message or email to a doctor."
+                ),
+                func=self._send_doctor_message_tool_func,
             ),
         ]
 
@@ -108,7 +151,7 @@ class AgentManager:
             checkpointer=checkpointer,
         )
 
-        logger.info("AgentManager initialized")
+        logger.info("AgentManagerMultiTools initialized")
 
     async def process_message(self, user_message: str, user_id: str) -> Dict[str, Any]:
         t0 = time.perf_counter()
@@ -118,7 +161,6 @@ class AgentManager:
         self._current_history_text = self._build_history_text()
         self._last_tool_used = None
 
-        # response, intent = self._route_and_respond(user_message)
         response, intent = self._route_and_respond(user_message, user_id)
 
         self.memory.add_turn("assistant", response)
@@ -136,17 +178,6 @@ class AgentManager:
             "history": self.memory.get_recent_history(),
         }
 
-    # def _route_and_respond(self, user_message: str) -> tuple[str, str]:
-    #     result = self.tools_agent.invoke(
-    #         {
-    #             "messages": [
-    #                 {"role": "user", "content": user_message}
-    #             ]
-    #         }
-    #     )
-    #     response = self._extract_final_text(result)
-    #     intent = self._resolve_intent()
-    #     return response, intent
     def _route_and_respond(self, user_message: str, user_id: str) -> tuple[str, str]:
         result = self.tools_agent.invoke(
             {
@@ -175,9 +206,29 @@ class AgentManager:
         self._last_tool_used = "LLM"
         return self._run_llm_tool(tool_input)
 
-    def _action_tool_func(self, tool_input: str) -> str:
-        self._last_tool_used = "ACTION"
-        return self._run_action_tool(tool_input)
+    def _list_slots_tool_func(self, tool_input: str) -> str:
+        self._last_tool_used = "LIST_SLOTS"
+        return self._run_list_slots_tool(tool_input)
+
+    def _list_appointments_tool_func(self, tool_input: str) -> str:
+        self._last_tool_used = "LIST_APPOINTMENTS"
+        return self._run_list_appointments_tool(tool_input)
+
+    def _book_appointment_tool_func(self, tool_input: str) -> str:
+        self._last_tool_used = "BOOK_APPOINTMENT"
+        return self._run_book_appointment_tool(tool_input)
+
+    def _cancel_appointment_tool_func(self, tool_input: str) -> str:
+        self._last_tool_used = "CANCEL_APPOINTMENT"
+        return self._run_cancel_appointment_tool(tool_input)
+
+    def _reschedule_appointment_tool_func(self, tool_input: str) -> str:
+        self._last_tool_used = "RESCHEDULE_APPOINTMENT"
+        return self._run_reschedule_appointment_tool(tool_input)
+
+    def _send_doctor_message_tool_func(self, tool_input: str) -> str:
+        self._last_tool_used = "SEND_DOCTOR_MESSAGE"
+        return self._run_send_doctor_message_tool(tool_input)
 
     # -------- Core implementations --------
 
@@ -186,7 +237,6 @@ class AgentManager:
         return "\n".join(f"{t['role']}: {t['content']}" for t in turns)
 
     def _run_llm_tool(self, message: str) -> str:
-        # f"Conversation history:\n{self._current_history_text}\n"
         return (
             f"Task type: casual conversation or general support.\n"
             f"User message:\n{message}\n"
@@ -210,31 +260,74 @@ class AgentManager:
         #     f"instruction=Answer using only the context. Keep it concise."
         # ), mode
 
+    def _run_list_slots_tool(self, message: str) -> str:
+        slots = self.appointments.list_available_slots()
+        if not slots:
+            return "There are no available slots in the current timetable."
 
-    def _run_action_tool(self, message: str) -> str:
+        preview = ", ".join(self._format_slot_preview(s) for s in slots[:8])
+        return f"Here are available slots: {preview}"
+
+    def _run_list_appointments_tool(self, message: str) -> str:
+        appts = self.appointments.get_patient_appointments()
+        if not appts:
+            return "You do not have any booked appointments."
+
+        preview = ", ".join(self._format_appointment_preview(a) for a in appts[:8])
+        return f"Here are your booked appointments: {preview}"
+
+    def _run_book_appointment_tool(self, message: str) -> str:
         msg = message.lower()
-
         slot_id = self._extract_slot_id(msg)
+
+        if not slot_id:
+            available = self.appointments.list_available_slots()
+            if not available:
+                return "There are no available slots to book right now."
+
+            requested_day = self._extract_requested_day(msg)
+            if requested_day:
+                matched = self._filter_slots_by_day(available, requested_day)
+                if matched:
+                    slot_id = matched[0]["id"]
+                else:
+                    return f"I could not find an available slot for {requested_day}."
+            else:
+                slot_id = available[0]["id"]
+
+        ok = self.appointments.book_appointment(slot_id)
+        return (
+            f"I have booked {slot_id} for you."
+            if ok
+            else f"I could not book {slot_id}. It may already be reserved or invalid."
+        )
+
+    def _run_cancel_appointment_tool(self, message: str) -> str:
+        msg = message.lower()
         appt_id = self._extract_appointment_id(msg)
 
-        if self._wants_slots(msg):
-            slots = self.appointments.list_available_slots()
-            if not slots:
-                return "There are no available slots in the current timetable."
-            preview = ", ".join(
-                self._format_slot_preview(s) for s in slots[:8]
-            )
-            return f"Here are available slots: {preview}"
+        if not appt_id:
+            appts = self.appointments.get_patient_appointments()
+            if not appts:
+                return "There is no active appointment to cancel."
 
-        if re.search(r"\b(reschedule|rebook|move|change)\b", msg):
-            return self._handle_reschedule(message, msg, appt_id, slot_id)
+            mentioned_day = self._extract_source_day(msg) or self._extract_requested_day(msg)
+            matched_appts = self._filter_appointments_by_day(appts, mentioned_day)
 
-        if re.search(r"\bcancel\b", msg):
-            if not appt_id:
-                appts = self.appointments.get_patient_appointments()
-                if not appts:
-                    return "There is no active appointment to cancel."
-                if len(appts) > 1:
+            if len(matched_appts) == 1:
+                appt_id = matched_appts[0]["id"]
+            elif len(matched_appts) > 1:
+                preview = ", ".join(
+                    self._format_appointment_preview(a) for a in matched_appts[:5]
+                )
+                return (
+                    "You have multiple matching appointments. "
+                    f"Please specify which one to cancel: {preview}"
+                )
+            else:
+                if len(appts) == 1:
+                    appt_id = appts[0]["id"]
+                else:
                     preview = ", ".join(
                         self._format_appointment_preview(a) for a in appts[:5]
                     )
@@ -242,53 +335,37 @@ class AgentManager:
                         "You have multiple appointments. "
                         f"Please specify which one to cancel: {preview}"
                     )
-                appt_id = appts[0]["id"]
 
-            ok = self.appointments.cancel_appointment(appt_id)
-            return (
-                f"Appointment {appt_id} has been canceled."
-                if ok
-                else f"I could not cancel appointment {appt_id}."
-            )
+        ok = self.appointments.cancel_appointment(appt_id)
+        return (
+            f"Appointment {appt_id} has been canceled."
+            if ok
+            else f"I could not cancel appointment {appt_id}."
+        )
 
-        if re.search(r"\bbook\b", msg) or slot_id:
-            if not slot_id:
-                available = self.appointments.list_available_slots()
-                if not available:
-                    return "There are no available slots to book right now."
+    def _run_reschedule_appointment_tool(self, message: str) -> str:
+        msg = message.lower()
 
-                requested_day = self._extract_requested_day(msg)
-                if requested_day:
-                    matched = self._filter_slots_by_day(available, requested_day)
-                    if matched:
-                        slot_id = matched[0]["id"]
-                    else:
-                        return f"I could not find an available slot for {requested_day}."
-                else:
-                    slot_id = available[0]["id"]
+        slot_id = self._extract_slot_id(msg)
+        appt_id = self._extract_appointment_id(msg)
 
-            ok = self.appointments.book_appointment(slot_id)
-            return (
-                f"I have booked {slot_id} for you."
-                if ok
-                else f"I could not book {slot_id}. It may already be reserved or invalid."
-            )
+        return self._handle_reschedule(message, msg, appt_id, slot_id)
 
-        if "send message" in msg or "email" in msg:
-            doctors = self.messaging.list_doctors()
-            recipient = doctors[0]["id"] if doctors else "doc_1"
-            ok = self.messaging.send_message(
-                recipient_id=recipient,
-                subject="Patient request",
-                body=message,
-            )
-            return (
-                "I have sent your message to the doctor."
-                if ok
-                else "I could not send the message."
-            )
+    def _run_send_doctor_message_tool(self, message: str) -> str:
+        doctors = self.messaging.list_doctors()
+        recipient = doctors[0]["id"] if doctors else "doc_1"
 
-        return "I can help with booking, canceling, rescheduling appointments, listing slots, or sending a doctor message."
+        ok = self.messaging.send_message(
+            recipient_id=recipient,
+            subject="Patient request",
+            body=message,
+        )
+        return (
+            "I have sent your message to the doctor."
+            if ok
+            else "I could not send the message."
+        )
+
     # -------- Helpers --------
 
     def _handle_reschedule(
@@ -298,7 +375,6 @@ class AgentManager:
         appt_id: Optional[str],
         slot_id: Optional[str],
     ) -> str:
-        # Old behavior still works if user provides both ids explicitly.
         if appt_id and slot_id:
             ok = self.appointments.reschedule_appointment(appt_id, slot_id)
             return (
@@ -311,7 +387,6 @@ class AgentManager:
         if not appts:
             return "There is no active appointment to reschedule."
 
-        # If appointment id not given, try to infer it.
         target_appt = None
         if appt_id:
             target_appt = next((a for a in appts if a.get("id") == appt_id), None)
@@ -338,7 +413,6 @@ class AgentManager:
             else:
                 return "I could not find the appointment you want to reschedule."
 
-        # If slot id not given, try to infer new slot from requested day.
         target_slot = None
         if slot_id:
             slots = self.appointments.list_available_slots()
@@ -361,7 +435,6 @@ class AgentManager:
 
             target_slot = matching_slots[0]
 
-        # Safe order: find current -> find new -> cancel -> book
         old_appt_id = target_appt["id"]
         new_slot_id = target_slot["id"]
 
@@ -379,7 +452,6 @@ class AgentManager:
         return (
             f"Your appointment {old_appt_id} was rescheduled to {self._format_slot_preview(target_slot)}."
         )
-
 
     def _extract_requested_day(self, message_lower: str) -> Optional[str]:
         days = (
@@ -400,14 +472,12 @@ class AgentManager:
 
         return None
 
-
     def _extract_source_day(self, message_lower: str) -> Optional[str]:
         m = re.search(
             r"\bfrom\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
             message_lower,
         )
         return m.group(1) if m else None
-
 
     def _filter_slots_by_day(self, slots: list[dict], day_name: str) -> list[dict]:
         matched = []
@@ -420,8 +490,11 @@ class AgentManager:
                 matched.append(slot)
         return matched
 
-
-    def _filter_appointments_by_day(self, appointments: list[dict], day_name: Optional[str]) -> list[dict]:
+    def _filter_appointments_by_day(
+        self,
+        appointments: list[dict],
+        day_name: Optional[str]
+    ) -> list[dict]:
         if not day_name:
             return appointments
 
@@ -435,22 +508,23 @@ class AgentManager:
                 matched.append(appt)
         return matched
 
-
     def _format_slot_preview(self, slot: dict) -> str:
         slot_id = slot.get("id", "unknown_slot")
         day = slot.get("day") or slot.get("date") or ""
         time_val = slot.get("time") or ""
-        extra = " ".join(part for part in [str(day).strip(), str(time_val).strip()] if part).strip()
+        extra = " ".join(
+            part for part in [str(day).strip(), str(time_val).strip()] if part
+        ).strip()
         return f"{slot_id} ({extra})" if extra else slot_id
-
 
     def _format_appointment_preview(self, appt: dict) -> str:
         appt_id = appt.get("id", "unknown_appt")
         day = appt.get("day") or appt.get("date") or ""
         time_val = appt.get("time") or ""
-        extra = " ".join(part for part in [str(day).strip(), str(time_val).strip()] if part).strip()
+        extra = " ".join(
+            part for part in [str(day).strip(), str(time_val).strip()] if part
+        ).strip()
         return f"{appt_id} ({extra})" if extra else appt_id
-
 
     def _extract_final_text(self, result: Any) -> str:
         if not isinstance(result, dict):
@@ -497,23 +571,6 @@ class AgentManager:
 
     def _resolve_intent(self) -> str:
         return (self._last_tool_used or "LLM_ONLY").upper()
-
-    def _wants_slots(self, msg_lower: str) -> bool:
-        return any(
-            phrase in msg_lower
-            for phrase in (
-                "available slots",
-                "available appointments",
-                "which appointments are available",
-                "when can i come",
-                "list slots",
-                "show slots",
-                "list available appointments",
-                "show available appointments",
-                "list available slots",
-                "show available slots",
-            )
-        )
 
     def _extract_slot_id(self, message_lower: str) -> Optional[str]:
         m = re.search(r"\bslot[_\s-]?(\d+)\b", message_lower)

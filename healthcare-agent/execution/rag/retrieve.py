@@ -9,6 +9,8 @@ CHROMA_PATH = "chroma_db/"
 DEFAULT_RAG_SIMILARITY_THRESHOLD = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "1.4"))
 DEFAULT_RAG_TOP_K = int(os.getenv("RAG_TOP_K", "3"))
 
+# CONVERSATION HISTORY (for reference resolution only):
+# {history}
 RAG_PROMPT_TEMPLATE = """
 You are an assistant with access to a knowledge base.
 
@@ -18,9 +20,6 @@ Do NOT answer old questions from the history unless the user explicitly asks aga
 
 DATABASE CONTEXT:
 {context}
-
-CONVERSATION HISTORY (for reference resolution only):
-{history}
 
 Question: {question}
 
@@ -35,9 +34,6 @@ The similarity search did not find any sufficiently relevant documents for this 
 2) Then answer using general knowledge, if possible.
 3) If you don't know, say you don't know.
 
-(Use conversation history only to resolve references, not as a knowledge source.)
-History:
-{history}
 
 Question: {question}
 

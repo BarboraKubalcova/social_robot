@@ -27,7 +27,7 @@ class OllamaClient:
         Generate a response using the LangChain Ollama wrapper.
         """
         try:
-            print(f"Invoking Ollama with prompt: {prompt}")
+            # print(f"Invoking Ollama with prompt: {prompt}")
             response = self.llm.invoke(prompt)
             content = getattr(response, "content", response)
 

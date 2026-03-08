@@ -1,13 +1,10 @@
 import logging
 import os
 import re
-import time
 import json
 from typing import Dict, Any, Optional, Literal
 
-from pydantic import BaseModel, Field
-# from langchain.agents import create_agent
-# from langchain_core.tools import Tool
+from pydantic import BaseModel, Field, ValidationError
 
 from orchestration.memory import ConversationMemory
 from execution.ollama_client import OllamaClient
@@ -23,9 +20,6 @@ class RouteDecision(BaseModel):
     reason: str = Field(description="Short reason for the selected tool.")
 
 
-import json
-from pydantic import ValidationError
-
 class DeterministicAgentManager:
     def __init__(self):
         self.memory = ConversationMemory()
@@ -37,7 +31,6 @@ class DeterministicAgentManager:
         self.appointments = AppointmentManager()
         self.messaging = MessageManager()
 
-        # optional: keep this deterministic shortcut
         self.enable_keyword_preroute = os.getenv("KEYWORD_PREROUTE", "1") == "1"
 
     async def process_message(self, user_message: str, user_id: str) -> Dict[str, Any]:
@@ -58,8 +51,6 @@ class DeterministicAgentManager:
         }
 
     def _fallback_route(self, message: str) -> RouteDecision:
-        """Very simple keyword router to avoid unnecessary LLM calls."""
-        
         msg = message.lower()
 
         action_keywords = [
@@ -68,9 +59,14 @@ class DeterministicAgentManager:
             "schedule",
             "cancel",
             "reschedule",
+            "rebook",
+            "move",
+            "change",
             "slot",
             "doctor",
-            "message doctor"
+            "message doctor",
+            "available appointments",
+            "available slots",
         ]
 
         rag_keywords = [
@@ -81,30 +77,27 @@ class DeterministicAgentManager:
             "insurance",
             "treatment",
             "procedure",
-            "how does"
+            "how does",
         ]
 
         if any(k in msg for k in action_keywords):
             return RouteDecision(
                 tool="ACTION",
-                reason="Detected appointment/doctor action keywords"
+                reason="Detected appointment/doctor action keywords",
             )
 
         if any(k in msg for k in rag_keywords):
             return RouteDecision(
                 tool="RAG",
-                reason="Detected knowledge/policy question"
+                reason="Detected knowledge/policy question",
             )
 
         return RouteDecision(
             tool="LLM",
-            reason="Default conversational response"
+            reason="Default conversational response",
         )
 
     def _run_llm_tool(self, message: str, history_text: str) -> str:
-        """
-        Plain LLM response (no retrieval, no action).
-        """
         prompt = (
             "You are a helpful healthcare assistant.\n"
             "Be concise and clear. If the user asks to book/cancel/reschedule appointments, "
@@ -119,15 +112,16 @@ class DeterministicAgentManager:
             return "Sorry — I had a problem generating a response."
 
     def _run_rag_tool(self, message: str, history_text: str) -> tuple[str, str]:
-        """
-        Retrieval-augmented answer. Returns (response, mode).
-        mode is useful for your UI/analytics.
-        """
         try:
-            # Adjust these names if your Retriever API differs.
-            # Common patterns: retrieve(), search(), get_context(), query()
-            docs = self.retriever.retrieve(message)  # <-- if this breaks, see note below
-            context = self._format_retrieved_docs(docs)
+            # docs = self.retriever.retrieve(message)
+            # context = self._format_retrieved_docs(docs)
+            _, prompt_kwargs, mode = self.retriever.retrieve_and_build_prompt(
+                message,
+                history_text,
+            )
+
+            context = prompt_kwargs.get("context", "")
+            question = prompt_kwargs.get("question", message)
 
             prompt = (
                 "You are a healthcare assistant. Answer using ONLY the provided context.\n"
@@ -140,128 +134,217 @@ class DeterministicAgentManager:
             return answer, "RAG"
         except Exception as e:
             self.logger.exception("RAG tool failed: %s", e)
-            # fallback to plain LLM if retrieval breaks
             return self._run_llm_tool(message, history_text), "RAG_FALLBACK_LLM"
 
     def _format_retrieved_docs(self, docs: Any) -> str:
-        """
-        Makes a readable context string from whatever your Retriever returns.
-        Supports common shapes: list[Document], list[str], list[dict], plain str.
-        """
         if docs is None:
             return ""
 
-        # If retriever returns a string context already
         if isinstance(docs, str):
             return docs.strip()
 
-        # If it's a list of things
         if isinstance(docs, list):
             chunks = []
-            for d in docs[:6]:  # cap context size a bit
+            for d in docs[:6]:
                 if isinstance(d, str):
                     chunks.append(d.strip())
                 elif isinstance(d, dict):
-                    # common keys: "page_content", "content", "text"
-                    chunks.append(str(d.get("page_content") or d.get("content") or d.get("text") or d).strip())
+                    chunks.append(
+                        str(d.get("page_content") or d.get("content") or d.get("text") or d).strip()
+                    )
                 else:
-                    # langchain Document often has .page_content
                     page_content = getattr(d, "page_content", None)
                     chunks.append((page_content if page_content is not None else str(d)).strip())
             return "\n\n---\n\n".join([c for c in chunks if c])
 
-        # Otherwise just stringify
         return str(docs).strip()
 
     def _run_action_tool(self, message: str) -> str:
+        message = self._normalize_tool_input(message)
         msg = message.lower().strip()
 
-        # helpers
-        def find_appt_id(text: str) -> Optional[str]:
-            m = re.search(r"\b(appt_\d+)\b", text, re.IGNORECASE)
-            return m.group(1).lower() if m else None
+        slot_id = self._extract_slot_id(msg)
+        appt_id = self._extract_appointment_id(msg)
 
-        def find_slot_ids(text: str) -> list[str]:
-            return [s.lower() for s in re.findall(r"\b(slot_\d+)\b", text, re.IGNORECASE)]
+        self.logger.info("ACTION dispatch msg=%r slot_id=%r appt_id=%r", msg, slot_id, appt_id)
 
-        # 1) list/show commands
-        if any(k in msg for k in ["available", "free slots", "list slots", "slots"]):
+        if self._wants_slots(msg):
             slots = self.appointments.list_available_slots()
             if not slots:
-                return "No available slots found."
+                return "There are no available slots in the current timetable."
 
-            # keep it short for chat UI
-            preview = slots[:10]
-            lines = [f"{s['id']} — day {s['day']} at {s['time']}" for s in preview]
-            more = "" if len(slots) <= 10 else f"\n…and {len(slots) - 10} more."
-            return "Here are available slots:\n" + "\n".join(lines) + more
+            preview = ", ".join(self._format_slot_preview(s) for s in slots[:8])
+            more = f" ... and {len(slots) - 8} more." if len(slots) > 8 else ""
+            return f"Here are available slots: {preview}{more}"
 
-        if any(k in msg for k in ["my appointments", "show appointments", "list appointments"]):
+        if self._wants_appointments(msg):
             appts = self.appointments.get_patient_appointments()
             if not appts:
                 return "You have no appointments scheduled."
 
-            lines = [f"{a['id']} — {a['time']} ({a['slot_id']})" for a in appts]
-            return "Your appointments:\n" + "\n".join(lines)
+            preview = ", ".join(self._format_appointment_preview(a) for a in appts[:8])
+            more = f" ... and {len(appts) - 8} more." if len(appts) > 8 else ""
+            return f"Your appointments: {preview}{more}"
 
-        # 2) cancel
-        if any(k in msg for k in ["cancel", "delete appointment", "remove appointment"]):
-            appt_id = find_appt_id(message)
+        if re.search(r"\b(reschedule|rebook|move|change)\b", msg):
+            return self._handle_reschedule(message, msg, appt_id, slot_id)
+
+        if re.search(r"\bcancel\b", msg):
             if not appt_id:
-                return "To cancel, please include the appointment id (e.g., appt_2)."
+                appts = self.appointments.get_patient_appointments()
+                if not appts:
+                    return "There is no active appointment to cancel."
+                if len(appts) > 1:
+                    preview = ", ".join(
+                        self._format_appointment_preview(a) for a in appts[:5]
+                    )
+                    return (
+                        "You have multiple appointments. "
+                        f"Please specify which one to cancel: {preview}"
+                    )
+                appt_id = appts[0]["id"]
+
             ok = self.appointments.cancel_appointment(appt_id)
-            return "Canceled." if ok else f"Could not cancel {appt_id}."
+            return (
+                f"Appointment {appt_id} has been canceled."
+                if ok
+                else f"I could not cancel appointment {appt_id}."
+            )
 
-        # 3) reschedule
-        if any(k in msg for k in ["reschedule", "move appointment", "change appointment"]):
-            appt_id = find_appt_id(message)
-            slots = find_slot_ids(message)
+        if re.search(r"\bbook\b", msg) or slot_id:
+            if not slot_id:
+                available = self.appointments.list_available_slots()
+                if not available:
+                    return "There are no available slots to book right now."
 
-            if not appt_id:
-                return "To reschedule, please include the appointment id (e.g., appt_2)."
-            if len(slots) < 1:
-                return "To reschedule, please include the new slot id (e.g., slot_17)."
+                requested_day = self._extract_requested_day(msg)
+                if requested_day:
+                    matched = self._filter_slots_by_day(available, requested_day)
+                    if matched:
+                        slot_id = matched[0]["id"]
+                    else:
+                        return f"I could not find an available slot for {requested_day}."
+                else:
+                    slot_id = available[0]["id"]
 
-            new_slot_id = slots[-1]  # last mentioned slot
-            ok = self.appointments.reschedule_appointment(appt_id, new_slot_id)
-            return "Rescheduled." if ok else f"Could not reschedule {appt_id} to {new_slot_id}."
-
-        # 4) book
-        if any(k in msg for k in ["book", "schedule", "make appointment", "reserve"]):
-            slots = find_slot_ids(message)
-            if not slots:
-                return (
-                    "To book, please include the slot id (e.g., slot_17). "
-                    "You can also ask: 'list available slots'."
-                )
-            slot_id = slots[-1]
             ok = self.appointments.book_appointment(slot_id)
-            return "Appointment booked successfully." if ok else f"Could not book {slot_id} (it may already be taken)."
+            return (
+                f"I have booked {slot_id} for you."
+                if ok
+                else f"I could not book {slot_id}. It may already be reserved or invalid."
+            )
 
-        # 5) messaging (wire this to your MessageManager API)
-        if any(k in msg for k in ["message doctor", "contact doctor", "send message"]):
-            # Replace this with your real MessageManager call:
-            # return self.messaging.send_message_from_text(message)
-            return "Messaging is routed correctly, but MessageManager is not wired in here yet."
+        if "send message" in msg or "message doctor" in msg or "email" in msg:
+            doctors = self.messaging.list_doctors()
+            recipient = doctors[0]["id"] if doctors else "doc_1"
+            ok = self.messaging.send_message(
+                recipient_id=recipient,
+                subject="Patient request",
+                body=message,
+            )
+            return (
+                "I have sent your message to the doctor."
+                if ok
+                else "I could not send the message."
+            )
 
         return (
-            "I can help with appointments. Try:\n"
-            "- 'list available slots'\n"
-            "- 'book slot_17'\n"
-            "- 'cancel appt_2'\n"
-            "- 'reschedule appt_2 to slot_19'\n"
-            "- 'my appointments'"
+            "I can help with appointments. Try: "
+            "'list available slots', 'book slot_17', 'cancel appt_2', "
+            "'reschedule appt_2 to slot_19', or 'my appointments'."
+        )
+
+    def _handle_reschedule(
+        self,
+        original_message: str,
+        msg_lower: str,
+        appt_id: Optional[str],
+        slot_id: Optional[str],
+    ) -> str:
+        if appt_id and slot_id:
+            ok = self.appointments.reschedule_appointment(appt_id, slot_id)
+            return (
+                f"Appointment {appt_id} was rescheduled to {slot_id}."
+                if ok
+                else f"I could not reschedule {appt_id} to {slot_id}."
+            )
+
+        appts = self.appointments.get_patient_appointments()
+        if not appts:
+            return "There is no active appointment to reschedule."
+
+        target_appt = None
+        if appt_id:
+            target_appt = next((a for a in appts if a.get("id") == appt_id), None)
+            if not target_appt:
+                return f"I could not find appointment {appt_id}."
+        else:
+            mentioned_old_day = self._extract_source_day(msg_lower)
+            matched_appts = (
+                self._filter_appointments_by_day(appts, mentioned_old_day)
+                if mentioned_old_day
+                else appts
+            )
+
+            if len(matched_appts) == 1:
+                target_appt = matched_appts[0]
+            elif len(matched_appts) > 1:
+                preview = ", ".join(
+                    self._format_appointment_preview(a) for a in matched_appts[:5]
+                )
+                return (
+                    "I found multiple matching appointments to reschedule. "
+                    f"Please specify which one: {preview}"
+                )
+            else:
+                return "I could not find the appointment you want to reschedule."
+
+        target_slot = None
+        if slot_id:
+            slots = self.appointments.list_available_slots()
+            target_slot = next((s for s in slots if s.get("id") == slot_id), None)
+            if not target_slot:
+                return f"I could not find slot {slot_id}."
+        else:
+            requested_new_day = self._extract_requested_day(msg_lower)
+            if not requested_new_day:
+                return (
+                    "Please provide the new day or slot id for rescheduling "
+                    "(for example: 'move it to Thursday' or 'to slot_12')."
+                )
+
+            available = self.appointments.list_available_slots()
+            matching_slots = self._filter_slots_by_day(available, requested_new_day)
+
+            if not matching_slots:
+                return f"I could not find any available slots for {requested_new_day}."
+
+            target_slot = matching_slots[0]
+
+        old_appt_id = target_appt["id"]
+        new_slot_id = target_slot["id"]
+
+        cancel_ok = self.appointments.cancel_appointment(old_appt_id)
+        if not cancel_ok:
+            return f"I found appointment {old_appt_id}, but I could not cancel it."
+
+        book_ok = self.appointments.book_appointment(new_slot_id)
+        if not book_ok:
+            return (
+                f"I canceled {old_appt_id}, but I could not book {new_slot_id}. "
+                "Manual review is needed."
+            )
+
+        return (
+            f"Your appointment {old_appt_id} was rescheduled to "
+            f"{self._format_slot_preview(target_slot)}."
         )
 
     def _normalize_response(self, response: Any, message: str, history_text: str) -> str:
-        """
-        Ensures output is a clean string for the UI.
-        """
         if response is None:
             return ""
         if isinstance(response, str):
             return response.strip()
-        # Some libs return dicts like {"output": "..."} or {"response": "..."}
         if isinstance(response, dict):
             for key in ("response", "output", "text", "content", "message"):
                 if key in response and isinstance(response[key], str):
@@ -276,18 +359,16 @@ class DeterministicAgentManager:
         )
 
     def _decide_tool(self, message: str, history_text: str) -> RouteDecision:
-        # 1) optional deterministic pre-route (fast and predictable)
         if self.enable_keyword_preroute:
             quick = self._fallback_route(message)
             if quick.tool != "LLM":
                 return quick
 
-        # 2) LLM router (must output strict JSON)
         prompt = (
             "You are a router for a healthcare assistant. Choose exactly ONE tool.\n\n"
             "Tools:\n"
-            "- ACTION: booking/canceling/rescheduling appointments, listing slots, sending doctor messages.\n"
-            "- RAG: questions about clinic rules/policies/procedures/preparation that must be grounded in the knowledge base.\n"
+            "- ACTION: booking/canceling/rescheduling appointments, listing slots, listing appointments, sending doctor messages.\n"
+            "- RAG: questions about clinic procedures, MRI, CT, roentgen examination, all health related things that must be grounded in the knowledge base.\n"
             "- LLM: casual chat, greetings, emotional support, generic questions that don't require RAG or ACTION.\n\n"
             "Return ONLY a JSON object with keys: tool, reason.\n"
             'tool must be one of: "LLM", "RAG", "ACTION".\n\n'
@@ -298,14 +379,12 @@ class DeterministicAgentManager:
         raw = self.llm.generate(prompt) or ""
         raw = raw.strip()
 
-        # Try direct JSON parse
         try:
             obj = json.loads(raw)
             return RouteDecision(**obj)
         except (json.JSONDecodeError, ValidationError, TypeError):
             pass
 
-        # Try to salvage JSON if model adds extra text
         obj = self._extract_first_json_object(raw)
         if obj is not None:
             try:
@@ -313,7 +392,6 @@ class DeterministicAgentManager:
             except (ValidationError, TypeError):
                 pass
 
-        # Final deterministic fallback
         fallback = self._fallback_route(message)
         return RouteDecision(tool=fallback.tool, reason="Router parse failed; " + fallback.reason)
 
@@ -338,3 +416,135 @@ class DeterministicAgentManager:
             response, mode = self._run_rag_tool(message, history_text)
             return response, mode
         return self._run_llm_tool(message, history_text), "LLM_ONLY"
+
+    # ---------- helpers for ACTION ----------
+
+    def _normalize_tool_input(self, tool_input: Any) -> str:
+        if tool_input is None:
+            return ""
+
+        if isinstance(tool_input, str):
+            text = tool_input.strip()
+        elif isinstance(tool_input, dict):
+            text = str(
+                tool_input.get("input")
+                or tool_input.get("message")
+                or tool_input.get("query")
+                or tool_input
+            ).strip()
+        else:
+            text = str(tool_input).strip()
+
+        m = re.search(r'"(?:input|message|query)"\s*:\s*"([^"]+)"', text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+
+        m = re.search(r"'(?:input|message|query)'\s*:\s*'([^']+)'", text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+
+        return text
+
+    def _wants_slots(self, msg_lower: str) -> bool:
+        phrases = (
+            "available slots",
+            "available appointments",
+            "which appointments are available",
+            "when can i come",
+            "list slots",
+            "show slots",
+            "list available appointments",
+            "show available appointments",
+            "list available slots",
+            "show available slots",
+            "free slots",
+            "free appointments",
+        )
+        if any(phrase in msg_lower for phrase in phrases):
+            return True
+
+        return bool(
+            re.search(
+                r"\b(list|show|see|check)\b.*\b(available|free|open)\b.*\b(slots|appointments|times)\b",
+                msg_lower,
+            )
+            or re.search(
+                r"\b(available|free|open)\b.*\b(slots|appointments|times)\b",
+                msg_lower,
+            )
+        )
+
+    def _wants_appointments(self, msg_lower: str) -> bool:
+        phrases = (
+            "my appointments",
+            "show appointments",
+            "list appointments",
+            "what appointments do i have",
+            "do i have any appointments",
+        )
+        return any(p in msg_lower for p in phrases)
+
+    def _extract_slot_id(self, message_lower: str) -> Optional[str]:
+        m = re.search(r"\bslot[_\s-]?(\d+)\b", message_lower)
+        return f"slot_{m.group(1)}" if m else None
+
+    def _extract_appointment_id(self, message_lower: str) -> Optional[str]:
+        m = re.search(r"\bappt[_\s-]?(\d+)\b", message_lower)
+        return f"appt_{m.group(1)}" if m else None
+
+    def _extract_requested_day(self, message_lower: str) -> Optional[str]:
+        days = (
+            "monday", "tuesday", "wednesday",
+            "thursday", "friday", "saturday", "sunday"
+        )
+
+        m = re.search(
+            r"\b(?:to|for|on)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+            message_lower,
+        )
+        if m:
+            return m.group(1)
+
+        for day in days:
+            if re.search(rf"\b{day}\b", message_lower):
+                return day
+
+        return None
+
+    def _extract_source_day(self, message_lower: str) -> Optional[str]:
+        m = re.search(
+            r"\bfrom\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+            message_lower,
+        )
+        return m.group(1) if m else None
+
+    def _filter_slots_by_day(self, slots: list[dict], day_name: str) -> list[dict]:
+        return [
+            s for s in slots
+            if str(s.get("day", "")).lower() == day_name.lower()
+        ]
+
+    def _filter_appointments_by_day(self, appointments: list[dict], day_name: Optional[str]) -> list[dict]:
+        if not day_name:
+            return appointments
+        return [
+            a for a in appointments
+            if str(a.get("day", "")).lower() == day_name.lower()
+        ]
+
+    def _format_slot_preview(self, slot: dict) -> str:
+        slot_id = slot.get("id", "unknown_slot")
+        day = slot.get("day") or ""
+        date = slot.get("date") or ""
+        time_val = slot.get("time") or ""
+        parts = [str(p).strip() for p in (day, date, time_val) if str(p).strip()]
+        return f"{slot_id} ({' '.join(parts)})" if parts else slot_id
+
+    def _format_appointment_preview(self, appt: dict) -> str:
+        appt_id = appt.get("id", "unknown_appt")
+        day = appt.get("day") or ""
+        date = appt.get("date") or ""
+        time_val = appt.get("time") or ""
+        slot_id = appt.get("slot_id") or ""
+        parts = [str(p).strip() for p in (day, date, time_val, slot_id) if str(p).strip()]
+        return f"{appt_id} ({' '.join(parts)})" if parts else appt_id
