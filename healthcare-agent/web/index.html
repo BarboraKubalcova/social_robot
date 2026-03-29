@@ -22,6 +22,7 @@
         </div>
       </header>
 
+      <div class="main-row">
       <main class="chat-card">
         <!-- Make THIS the scroll container -->
         <div id="chat-window" class="chat-window" aria-label="chat messages">
@@ -52,6 +53,19 @@
           <pre id="debug-content"></pre>
         </section>
       </main>
+
+      <section class="timetable-card" id="timetable-section">
+        <div class="timetable-header">
+          <h2>Appointments</h2>
+          <button id="refresh-btn" class="btn btn-ghost" type="button" title="Refresh">🔄</button>
+        </div>
+        <div id="timetable" class="timetable-grid"></div>
+        <div class="timetable-legend">
+          <span class="legend-item"><span class="legend-dot free"></span> Free</span>
+          <span class="legend-item"><span class="legend-dot occupied"></span> Occupied</span>
+        </div>
+      </section>
+      </div><!-- /main-row -->
     </div>
   </div>
 

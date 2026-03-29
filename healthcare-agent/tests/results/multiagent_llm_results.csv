@@ -1,0 +1,31 @@
+message,expected,predicted,correct,time_s
+Hello,CHAT,CHAT,True,9.5162
+Hi there!,CHAT,CHAT,True,8.9174
+Good morning,CHAT,CHAT,True,9.6064
+How are you?,CHAT,CHAT,True,9.7769
+Thank you for your help,CHAT,CHAT,True,10.0108
+Tell me a joke,CHAT,CHAT,True,8.7706
+I'm feeling anxious about my visit,CHAT,CHAT,True,13.8678
+"Goodbye, see you later",CHAT,CHAT,True,13.02
+What is your name?,CHAT,CHAT,True,9.7598
+Can you help me?,CHAT,CHAT,True,9.4683
+How should I prepare for an MRI?,RAG,RAG,True,12.2267
+Can I wear jewelry during an MRI?,RAG,RAG,True,10.5108
+How does a CT scan work?,RAG,RAG,True,9.7775
+What should I do before a ultrasound examination?,RAG,RAG,True,10.4302
+Tell me about X-ray preparation,RAG,RAG,True,11.6628
+What is the fasting policy before taking CT?,RAG,RAG,True,35.1455
+How does an ultrasound procedure work?,RAG,RAG,True,43.0885
+Can I drink before ultrasound?,RAG,RAG,True,11.2629
+Is MRI examination safe?,RAG,RAG,True,11.197
+Can I eat before MRI?,RAG,RAG,True,11.8693
+Book me an appointment for slot_1,ACTION,ACTION,True,10.3433
+Show me available slots,ACTION,ACTION,True,26.0175
+Cancel my appointment,ACTION,ACTION,True,18.6655
+Reschedule my appointment to Thursday,ACTION,ACTION,True,8.3646
+What appointments do I have?,ACTION,ACTION,True,29.1502
+Book slot_5,ACTION,ACTION,True,12.6749
+Cancel appt_2,ACTION,ACTION,True,80.9077
+I need to reschedule appt_1 to slot_9,ACTION,ACTION,True,10.4364
+List my scheduled appointments,ACTION,ACTION,True,25.5905
+Are there any free slots on Monday?,ACTION,ACTION,True,11.0114

@@ -6,11 +6,21 @@ logger = logging.getLogger("Appointments")
 
 
 class AppointmentManager:
+    _instance: Optional["AppointmentManager"] = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(
         self,
         start_date: Optional[date] = None,
         num_days: int = 3,
     ):
+        if hasattr(self, "_initialized"):
+            return
+        self._initialized = True
         # Static start date: 1 June 2026
         self.start_date = start_date or date(2026, 6, 1)
         self.num_days = num_days
@@ -209,3 +219,18 @@ class AppointmentManager:
     def get_timetable(self) -> List[List[Optional[str]]]:
         """Return the timetable matrix (rows=generated days, columns=times)."""
         return [row[:] for row in self.table]
+
+    def get_all_slots(self) -> List[Dict]:
+        """Return every slot with its status (free / occupied)."""
+        slots: List[Dict] = []
+        columns = len(self.time_columns)
+        for day_index, row in enumerate(self.table):
+            for time_index, cell in enumerate(row):
+                slot_number = day_index * columns + time_index + 1
+                meta = self._slot_metadata(day_index, time_index)
+                slots.append({
+                    "id": f"slot_{slot_number}",
+                    "status": "occupied" if cell is not None else "free",
+                    **meta,
+                })
+        return slots

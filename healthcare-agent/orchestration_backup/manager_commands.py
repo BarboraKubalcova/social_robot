@@ -8,7 +8,6 @@ from typing import Any, Dict, List
 from langchain_ollama import OllamaLLM
 
 from orchestration.memory import ConversationMemory
-from orchestration.tool_implementations import ToolExecutor
 from execution.rag.retrieve import Retriever
 from execution.actions.appointments import AppointmentManager
 from execution.actions.messaging import MessageManager
@@ -29,12 +28,10 @@ class PlannedAgentManager:
         self.logger = logging.getLogger("PlannedAgentManager")
         self.max_history_turns = int(os.getenv("MAX_HISTORY_TURNS", "3"))
 
-        self.model = OllamaLLM(model=os.getenv("OLLAMA_MODEL", "qwen3:4b"))
+        self.model = OllamaLLM(model=os.getenv("OLLAMA_MODEL", "qwen3:8b"))
         self.retriever = Retriever()
         self.appointments = AppointmentManager()
         self.messaging = MessageManager()
-
-        self.tools_exec = ToolExecutor(self.retriever, self.appointments, self.messaging)
 
     async def process_message(self, user_message: str, user_id: str) -> Dict[str, Any]:
         self.memory.add_turn("user", user_message)
@@ -386,69 +383,94 @@ Return only valid JSON.
 
                 elif tool == "rag_search":
                     question = str(args.get("question", user_input)).strip()
-                    context_str, mode = self.tools_exec.run_rag_tool(question, history_text)
+                    _, prompt_kwargs, mode = self.retriever.retrieve_and_build_prompt(
+                        question,
+                        history_text,
+                    )
+                    context = prompt_kwargs.get("context", "")
+                    grounded_question = prompt_kwargs.get("question", question)
 
                     execution_log.append({
                         "tool": "rag_search",
-                        "ok": bool(context_str.strip()),
+                        "ok": bool(context.strip()),
                         "message": (
                             "Knowledge base search completed."
-                            if context_str.strip()
+                            if context.strip()
                             else "No grounded context found."
                         ),
                         "data": {
-                            "question": question,
-                            "context": context_str,
+                            "question": grounded_question,
+                            "context": context,
                             "mode": mode,
                         }
                     })
 
                 elif tool == "list_slots":
-                    result = self.tools_exec.run_list_slots()
+                    slots = self.appointments.list_available_slots()
                     execution_log.append({
                         "tool": "list_slots",
                         "ok": True,
-                        "message": result,
-                        "data": {"slots": self.appointments.list_available_slots() or []}
+                        "message": (
+                            "Available slots retrieved."
+                            if slots else
+                            "No available slots found."
+                        ),
+                        "data": {"slots": slots or []}
                     })
 
                 elif tool == "list_appointments":
-                    result = self.tools_exec.run_list_appointments()
+                    appts = self.appointments.get_patient_appointments()
                     execution_log.append({
                         "tool": "list_appointments",
                         "ok": True,
-                        "message": result,
-                        "data": {"appointments": self.appointments.get_patient_appointments() or []}
+                        "message": (
+                            "Appointments retrieved."
+                            if appts else
+                            "No appointments found."
+                        ),
+                        "data": {"appointments": appts or []}
                     })
 
                 elif tool == "book_appointment":
                     slot_id = str(args.get("slot_id", "")).strip()
-                    result = self.tools_exec.run_book_appointment_by_id(slot_id)
+                    ok = self.appointments.book_appointment(slot_id)
                     execution_log.append({
                         "tool": "book_appointment",
-                        "ok": "successfully" in result.lower(),
-                        "message": result,
+                        "ok": bool(ok),
+                        "message": (
+                            f"Appointment booked successfully for {slot_id}."
+                            if ok else
+                            f"Failed to book slot {slot_id}."
+                        ),
                         "data": {"slot_id": slot_id}
                     })
 
                 elif tool == "cancel_appointment":
                     appointment_id = str(args.get("appointment_id", "")).strip()
-                    result = self.tools_exec.run_cancel_appointment_by_id(appointment_id)
+                    ok = self.appointments.cancel_appointment(appointment_id)
                     execution_log.append({
                         "tool": "cancel_appointment",
-                        "ok": "successfully" in result.lower() or "canceled" in result.lower(),
-                        "message": result,
+                        "ok": bool(ok),
+                        "message": (
+                            f"Appointment {appointment_id} canceled successfully."
+                            if ok else
+                            f"Failed to cancel appointment {appointment_id}."
+                        ),
                         "data": {"appointment_id": appointment_id}
                     })
 
                 elif tool == "reschedule_appointment":
                     appointment_id = str(args.get("appointment_id", "")).strip()
                     new_slot_id = str(args.get("new_slot_id", "")).strip()
-                    result = self.tools_exec.run_reschedule_appointment_by_id(appointment_id, new_slot_id)
+                    ok = self.appointments.reschedule_appointment(appointment_id, new_slot_id)
                     execution_log.append({
                         "tool": "reschedule_appointment",
-                        "ok": "successfully" in result.lower(),
-                        "message": result,
+                        "ok": bool(ok),
+                        "message": (
+                            f"Appointment {appointment_id} rescheduled successfully to {new_slot_id}."
+                            if ok else
+                            f"Failed to reschedule appointment {appointment_id} to {new_slot_id}."
+                        ),
                         "data": {
                             "appointment_id": appointment_id,
                             "new_slot_id": new_slot_id,
@@ -553,7 +575,8 @@ Return only valid JSON.
             slots = data.get("slots", [])
             if not slots:
                 return "There are no available slots."
-            preview = ", ".join(self.tools_exec._format_slot_preview(s) for s in slots[:8])
+
+            preview = ", ".join(self._format_slot_preview(s) for s in slots[:8])
             more = f" ... and {len(slots) - 8} more." if len(slots) > 8 else ""
             return f"Available slots: {preview}{more}"
 
@@ -561,7 +584,8 @@ Return only valid JSON.
             appts = data.get("appointments", [])
             if not appts:
                 return "You have no appointments scheduled."
-            preview = ", ".join(self.tools_exec._format_appointment_preview(a) for a in appts[:8])
+
+            preview = ", ".join(self._format_appointment_preview(a) for a in appts[:8])
             more = f" ... and {len(appts) - 8} more." if len(appts) > 8 else ""
             return f"Your appointments: {preview}{more}"
 
@@ -593,6 +617,7 @@ Return only valid JSON.
             "book_appointment",
             "cancel_appointment",
             "reschedule_appointment",
+            # "send_doctor_message",
         }:
             return "ACTION"
 
@@ -603,3 +628,20 @@ Return only valid JSON.
             f"{turn['role']}: {turn['content']}"
             for turn in self.memory.get_recent_history(limit=self.max_history_turns)
         )
+
+    def _format_slot_preview(self, slot: dict) -> str:
+        slot_id = slot.get("id", "unknown_slot")
+        day = slot.get("day") or ""
+        date = slot.get("date") or ""
+        time_val = slot.get("time") or ""
+        parts = [str(p).strip() for p in (day, date, time_val) if str(p).strip()]
+        return f"{slot_id} ({' '.join(parts)})" if parts else slot_id
+
+    def _format_appointment_preview(self, appt: dict) -> str:
+        appt_id = appt.get("id", "unknown_appt")
+        day = appt.get("day") or ""
+        date = appt.get("date") or ""
+        time_val = appt.get("time") or ""
+        slot_id = appt.get("slot_id") or ""
+        parts = [str(p).strip() for p in (day, date, time_val, slot_id) if str(p).strip()]
+        return f"{appt_id} ({' '.join(parts)})" if parts else appt_id
