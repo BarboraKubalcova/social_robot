@@ -4,7 +4,8 @@ import re
 import time
 from typing import Any, Dict, Optional
 
-from langchain_core.tools import Tool
+from pydantic import BaseModel, Field
+from langchain_core.tools import Tool, StructuredTool
 from langchain.agents import create_agent
 from langgraph.errors import GraphRecursionError
 
@@ -21,13 +22,13 @@ from contextlib import contextmanager
 logger = logging.getLogger("AgentManagerMultiTools")
 
 
-@contextmanager
-def timed(label: str):
-    t0 = time.perf_counter()
-    try:
-        yield
-    finally:
-        logger.info("%s took %.2fs", label, time.perf_counter() - t0)
+# @contextmanager
+# def timed(label: str):
+#     t0 = time.perf_counter()
+#     try:
+#         yield
+#     finally:
+#         logger.info("%s took %.2fs", label, time.perf_counter() - t0)
 
 
 system_prompt = """
@@ -40,18 +41,56 @@ IMPORTANT RULES:
 - Do NOT describe which tool you chose or why.
 - Do NOT use LaTeX, math notation, or \\boxed{}.
 - Keep responses concise, warm, and patient-friendly.
-- Do not repeat the raw tool output back to the patient.
+- Do not repeat the raw tool output back to the patient (especially if its in json format).
+- Answer in maximum 7 sentences when using the RAG tool, and 3 sentences for general LLM responses.
+
+For the appointment booking and rescheduling tools, the user can say just a day and time.
+Each day has 9 slots at: 07:30, 08:30, 09:30, 10:30, 11:30, 13:00, 14:00, 15:00, 16:00.
+- Monday: slot_1=07:30, slot_2=08:30, slot_3=09:30, slot_4=10:30, slot_5=11:30, slot_6=13:00, slot_7=14:00, slot_8=15:00, slot_9=16:00
+- Tuesday: slot_10=07:30, slot_11=08:30, slot_12=09:30, slot_13=10:30, slot_14=11:30, slot_15=13:00, slot_16=14:00, slot_17=15:00, slot_18=16:00
+- Wednesday: slot_19=07:30, slot_20=08:30, slot_21=09:30, slot_22=10:30, slot_23=11:30, slot_24=13:00, slot_25=14:00, slot_26=15:00, slot_27=16:00
+If the user tries to book or reschedule without specifying a slot, use the LIST_SLOTS tool to show 
+them available options and prompt them to choose one. You can inform user abou calculation of the slot id
+and book it using the BOOK_APPOINTMENT tool with the slot_id argument.
+
 
 Tool guide:
 - LIST_SLOTS: show available appointment slots
 - LIST_APPOINTMENTS: show booked appointments
-- BOOK_APPOINTMENT: book an appointment slot
-- CANCEL_APPOINTMENT: cancel an existing appointment
-- RESCHEDULE_APPOINTMENT: move an appointment to a new slot
-- SEND_DOCTOR_MESSAGE: send a message/email to a doctor
+- BOOK_APPOINTMENT: book a specific slot (requires slot_id, e.g. 'slot_3')
+- CANCEL_APPOINTMENT: cancel a specific appointment (requires appointment_id, e.g. 'appt_2')
+- RESCHEDULE_APPOINTMENT: move an appointment to a new slot (requires appointment_id and new_slot_id)
+- SEND_DOCTOR_MESSAGE: send a message to a doctor (requires the message text)
 - RAG: clinic knowledge, medical procedures, policies, preparation instructions
 - LLM: greetings, empathy, casual chat, thank-yous, general questions not requiring retrieval or actions
 """
+
+
+# -------- Pydantic input schemas for structured tools --------
+
+class BookAppointmentInput(BaseModel):
+    slot_id: str = Field(description="The slot ID to book, e.g. 'slot_3'")
+
+
+# class BookAppointmentInput(BaseModel):
+#     slot_id: str = Field(description="The slot ID to book, e.g. 'slot_3'")
+
+
+class CancelAppointmentInput(BaseModel):
+    appointment_id: str = Field(description="The appointment ID to cancel, e.g. 'appt_2'")
+
+
+class RescheduleAppointmentInput(BaseModel):
+    appointment_id: str = Field(description="The appointment ID to reschedule, e.g. 'appt_2'")
+    new_slot_id: str = Field(description="The new slot ID to move the appointment to, e.g. 'slot_5'")
+
+
+class SendDoctorMessageInput(BaseModel):
+    message: str = Field(description="The message body to send to the doctor")
+
+
+class EmptyInput(BaseModel):
+    pass
 
 
 class AgentManagerMultiTools:
@@ -78,10 +117,9 @@ class AgentManagerMultiTools:
                 name="RAG",
                 description=(
                     "Use for questions that should be grounded in the knowledge base, "
-                    "such as medical procedures, clinic rules/policies, and preparation "
+                    "such as medical procedures, clinic rules/policies, preparation "
                     "guidelines (e.g., 'What is an MRI?', 'How do I prepare for an ultrasound?', "
-                    "'Can I bring someone with me?'). Note: the knowledge base also contains "
-                    "some chunks about machine learning mathematics for testing."
+                    "'Can I bring someone with me?'), questions about MRI, CT and ultrasound. Answer in max 7 sentences."
                 ),
                 func=self._rag_tool_func,
             ),
@@ -89,58 +127,86 @@ class AgentManagerMultiTools:
                 name="LLM",
                 description=(
                     "Use for casual chat, greetings, emotional support, and general questions "
-                    "not requiring retrieval or operational actions."
+                    "not requiring retrieval or operational actions. Answer in max 3 sentences."
                 ),
                 func=self._llm_tool_func,
             ),
-            Tool(
+            StructuredTool(
                 name="LIST_SLOTS",
                 description=(
                     "Use when the user wants to see available slots or asks when they can come, "
-                    "what appointments are available, or to show/list slots."
+                    "what appointments are available, or to show/list slots. Show all slots, "
+                    "not just a few (e.g. don't say 'I have a slot on Monday at 10am' if there "
+                    "are actually 10 slots available - instead list them all or say 'I have "
+                    "several slots available, including Monday at 10am, Tuesday at 2pm, etc.'). " 
+                    "Also use this tool if the user tries to book an appointment without specifying "
+                    "a slot, so you can prompt them with available options. Also use this tool" 
+                    "if a user asks to list available appointment times or something similar, because"
+                    "he does not want to see his appointments, but wants to book some."
                 ),
-                func=self._list_slots_tool_func,
+                func=self._list_slots_tool_func, 
+                args_schema=EmptyInput,
             ),
-            Tool(
+            StructuredTool(
                 name="LIST_APPOINTMENTS",
                 description=(
-                    "Use when the user wants to see their current booked appointments."
+                    "Use when the user wants to see their current booked appointments." 
+                    "Use this tool if the user asks to list their appointments, or if they "
+                    "ask to cancel or reschedule an appointment without specifying which one "
+                    "- you can show them their current appointments with this tool so they "
+                    "can choose. " 
                 ),
-                func=self._list_appointments_tool_func,
+                func=self._list_appointments_tool_func, 
+                args_schema=EmptyInput,
             ),
-            Tool(
+            StructuredTool(
                 name="BOOK_APPOINTMENT",
                 description=(
-                    "Use when the user wants to book an appointment. "
-                    "If the user mentions a slot id like slot_3, use it. "
-                    "If the user mentions a day or time (e.g. '7:30', 'Monday', '2pm'), "
-                    "the tool will find a matching available slot."
+                    "Book an appointment for a specific slot. "
+                    "Requires the slot_id (e.g. 'slot_3'). "
+                    "Use LIST_SLOTS first if the user has not specified a slot."
+                    "SLOT ID MAPPING in case the user provides a day and time: "
+                    "Each day has 9 slots at: 07:30, 08:30, 09:30, 10:30, 11:30, 13:00, 14:00, 15:00, 16:00. "
+                    "Monday: slot_1=07:30, slot_2=08:30, slot_3=09:30, slot_4=10:30, slot_5=11:30, slot_6=13:00, slot_7=14:00, slot_8=15:00, slot_9=16:00. "
+                    "Tuesday: slot_10=07:30, slot_11=08:30, slot_12=09:30, slot_13=10:30, slot_14=11:30, slot_15=13:00, slot_16=14:00, slot_17=15:00, slot_18=16:00. "
+                    "Wednesday: slot_19=07:30, slot_20=08:30, slot_21=09:30, slot_22=10:30, slot_23=11:30, slot_24=13:00, slot_25=14:00, slot_26=15:00, slot_27=16:00. "
+                    "If the user mentions a day and time, find the matching slot_id from this mapping."
                 ),
                 func=self._book_appointment_tool_func,
+                args_schema=BookAppointmentInput,
             ),
-            Tool(
+            StructuredTool(
                 name="CANCEL_APPOINTMENT",
                 description=(
-                    "Use when the user wants to cancel an existing appointment. "
-                    "If the user mentions an appointment id like appt_2, use it. "
-                    "If no id is given, infer the target appointment when possible."
+                    "Cancel an existing appointment. "
+                    "Requires the appointment_id (e.g. 'appt_2'). "
+                    "Use LIST_APPOINTMENTS first if the user has not specified an appointment."
                 ),
                 func=self._cancel_appointment_tool_func,
+                args_schema=CancelAppointmentInput,
             ),
-            Tool(
+            StructuredTool(
                 name="RESCHEDULE_APPOINTMENT",
                 description=(
-                    "Use when the user wants to move, change, rebook, or reschedule an appointment. "
-                    "Infer the current appointment and new slot/day when possible."
+                    "Move an existing appointment to a different slot. "
+                    "Requires the appointment_id and the new_slot_id." 
+                    "If the user just says 'I want to reschedule my appointment' "
+                    "without giving details, use LIST_APPOINTMENTS to show them their "
+                    "current appointments and LIST_SLOTS to show them available slots, "
+                    "so they can specify which appointment to move and where."
                 ),
                 func=self._reschedule_appointment_tool_func,
+                args_schema=RescheduleAppointmentInput,
             ),
-            Tool(
+            StructuredTool(
                 name="SEND_DOCTOR_MESSAGE",
                 description=(
-                    "Use when the user wants to send a message or email to a doctor."
+                    "Send a message or email to the patient's doctor. "
+                    "Requires the message text." 
+                    "Write the message in professional and respectful tone for the doctor."
                 ),
                 func=self._send_doctor_message_tool_func,
+                args_schema=SendDoctorMessageInput,
             ),
         ]
 
@@ -197,6 +263,19 @@ class AgentManagerMultiTools:
         except GraphRecursionError:
             logger.warning("Agent hit recursion limit for: %s", user_message)
             return "I'm sorry, I had trouble processing that. Could you rephrase?", "ERROR"
+
+        # Log all tool calls from the agent result
+        if isinstance(result, dict):
+            for msg in result.get("messages", []):
+                tool_calls = (
+                    msg.get("tool_calls")
+                    if isinstance(msg, dict)
+                    else getattr(msg, "tool_calls", None)
+                )
+                if tool_calls:
+                    logger.info("Tool calls: %s", tool_calls)
+                    print(f"[AGENT DEBUG] Tool calls: {tool_calls}")
+
         response = self._extract_final_text(result)
         intent = self._resolve_intent()
         return response, intent
@@ -212,29 +291,33 @@ class AgentManagerMultiTools:
         self._last_tool_used = "LLM"
         return self.tools_exec.run_llm_tool(tool_input)
 
-    def _list_slots_tool_func(self, tool_input: str) -> str:
+    def _list_slots_tool_func(self) -> str:
         self._last_tool_used = "LIST_SLOTS"
-        return self.tools_exec.run_list_slots(tool_input)
+        return self.tools_exec.run_list_slots()
 
-    def _list_appointments_tool_func(self, tool_input: str) -> str:
+    def _list_appointments_tool_func(self) -> str:
         self._last_tool_used = "LIST_APPOINTMENTS"
-        return self.tools_exec.run_list_appointments(tool_input)
+        return self.tools_exec.run_list_appointments()
 
-    def _book_appointment_tool_func(self, tool_input: str) -> str:
+    def _book_appointment_tool_func(self, slot_id: str) -> str:
         self._last_tool_used = "BOOK_APPOINTMENT"
-        return self.tools_exec.run_book_appointment(tool_input)
+        # If the model passed a proper slot ID, use the direct method;
+        # otherwise fall back to text-based parsing (handles "Monday 7:30" etc.)
+        if re.match(r"^slot[_\s-]?\d+$", slot_id.strip(), re.IGNORECASE):
+            return self.tools_exec.run_book_appointment_by_id(slot_id.strip())
+        return self.tools_exec.run_book_appointment(slot_id)
 
-    def _cancel_appointment_tool_func(self, tool_input: str) -> str:
+    def _cancel_appointment_tool_func(self, appointment_id: str) -> str:
         self._last_tool_used = "CANCEL_APPOINTMENT"
-        return self.tools_exec.run_cancel_appointment(tool_input)
+        return self.tools_exec.run_cancel_appointment_by_id(appointment_id)
 
-    def _reschedule_appointment_tool_func(self, tool_input: str) -> str:
+    def _reschedule_appointment_tool_func(self, appointment_id: str, new_slot_id: str) -> str:
         self._last_tool_used = "RESCHEDULE_APPOINTMENT"
-        return self.tools_exec.run_reschedule_appointment(tool_input)
+        return self.tools_exec.run_reschedule_appointment_by_id(appointment_id, new_slot_id)
 
-    def _send_doctor_message_tool_func(self, tool_input: str) -> str:
+    def _send_doctor_message_tool_func(self, message: str) -> str:
         self._last_tool_used = "SEND_DOCTOR_MESSAGE"
-        return self.tools_exec.run_send_doctor_message(tool_input)
+        return self.tools_exec.run_send_doctor_message(message)
 
     # -------- Core implementations --------
 
@@ -269,8 +352,21 @@ class AgentManagerMultiTools:
                 continue
 
             text = self._extract_text_content(content)
-            if role in ("assistant", "ai", "tool") and text:
+            if role in ("assistant", "ai") and text:
                 if self._is_raw_tool_call(text):
+                    # Try to salvage a "response" field from the leaked JSON
+                    salvaged = self._try_extract_response_from_json(text)
+                    if salvaged:
+                        return salvaged
+                    continue
+                return text
+            # For tool messages, skip bare tool names / very short outputs
+            # that are just echoed tool names rather than real results
+            if role == "tool" and text and not self._is_bare_tool_name(text):
+                if self._is_raw_tool_call(text):
+                    salvaged = self._try_extract_response_from_json(text)
+                    if salvaged:
+                        return salvaged
                     continue
                 return text
 
@@ -299,6 +395,17 @@ class AgentManagerMultiTools:
         text = re.sub(r"\$\$\s*", "", text)
         return text.strip()
 
+    _TOOL_NAMES = {
+        "RAG", "LLM", "LIST_SLOTS", "LIST_APPOINTMENTS",
+        "BOOK_APPOINTMENT", "CANCEL_APPOINTMENT",
+        "RESCHEDULE_APPOINTMENT", "SEND_DOCTOR_MESSAGE",
+    }
+
+    @classmethod
+    def _is_bare_tool_name(cls, text: str) -> bool:
+        """Detect text that is just a tool name echoed back."""
+        return text.strip().upper() in cls._TOOL_NAMES
+
     @staticmethod
     def _is_raw_tool_call(text: str) -> bool:
         """Detect text that is a raw JSON tool call leaked by the model."""
@@ -308,11 +415,34 @@ class AgentManagerMultiTools:
         try:
             import json
             obj = json.loads(stripped)
-            return isinstance(obj, dict) and (
-                "name" in obj or "tool" in obj
-            ) and ("arguments" in obj or "args" in obj)
+            if not isinstance(obj, dict):
+                return False
+            # Direct tool call: {"name": ..., "arguments": ...}
+            if ("name" in obj or "tool" in obj) and ("arguments" in obj or "args" in obj):
+                return True
+            # Wrapped tool call: {"tool_call": {...}, ...}
+            if "tool_call" in obj:
+                return True
+            return False
         except (json.JSONDecodeError, ValueError):
             return False
+
+    @staticmethod
+    def _try_extract_response_from_json(text: str) -> Optional[str]:
+        """If the model leaked JSON with a 'response' field, extract it."""
+        stripped = text.strip()
+        if not stripped.startswith("{"):
+            return None
+        try:
+            import json
+            obj = json.loads(stripped)
+            if isinstance(obj, dict) and "response" in obj:
+                resp = obj["response"]
+                if isinstance(resp, str) and resp.strip():
+                    return resp.strip()
+        except (json.JSONDecodeError, ValueError):
+            pass
+        return None
 
     def _resolve_intent(self) -> str:
         return (self._last_tool_used or "LLM_ONLY").upper()

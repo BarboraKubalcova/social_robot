@@ -1,0 +1,79 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36" version="29.6.6">
+  <diagram name="Page-1" id="ek2ybwTKYE9UETX0DZys">
+    <mxGraphModel dx="828" dy="1015" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-12" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=40;rounded=1;fillStyle=auto;glass=0;swimlaneLine=1;fillColor=#dae8fc;strokeColor=#6c8ebf;gradientColor=#7ea6e0;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Web Interface&lt;/font&gt;" vertex="1">
+          <mxGeometry height="170" width="470" x="980" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-5" parent="rUseuIQZ4pfgzGg4-DKg-12" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Speech2Text /&lt;br&gt;Web Speech API&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="210" x="240" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-13" parent="rUseuIQZ4pfgzGg4-DKg-12" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Chat UI&amp;nbsp;&lt;br&gt;(html, CSS, JS)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="210" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-14" parent="rUseuIQZ4pfgzGg4-DKg-12" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Appointments API&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="430" x="20" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-15" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=40;rounded=1;fillStyle=auto;glass=0;swimlaneLine=1;fillColor=#dae8fc;strokeColor=#6c8ebf;gradientColor=#7ea6e0;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;API Layer &lt;span style=&quot;font-weight: normal;&quot;&gt;(FastAPI)&lt;/span&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="170" width="470" x="980" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-17" parent="rUseuIQZ4pfgzGg4-DKg-15" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;/chat (POST)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="430" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-23" parent="rUseuIQZ4pfgzGg4-DKg-15" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;/chat/appointments (GET)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="430" x="20" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-19" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=40;rounded=1;fillStyle=auto;glass=0;swimlaneLine=1;fillColor=#dae8fc;strokeColor=#6c8ebf;gradientColor=#7ea6e0;" value="&lt;span style=&quot;font-size: 18px;&quot;&gt;Orchestration Layer &lt;span style=&quot;font-weight: normal;&quot;&gt;(Agent Managers)&lt;/span&gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="200" width="470" x="1470" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-22" parent="rUseuIQZ4pfgzGg4-DKg-19" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Conversation Memory&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="210" x="20" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-24" parent="rUseuIQZ4pfgzGg4-DKg-19" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Prompt Templates&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="210" x="240" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-25" parent="rUseuIQZ4pfgzGg4-DKg-19" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Tools Definitions&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="430" x="20" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-26" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=40;rounded=1;fillStyle=auto;glass=0;swimlaneLine=1;fillColor=#dae8fc;strokeColor=#6c8ebf;gradientColor=#7ea6e0;" value="&lt;span style=&quot;font-size: 18px;&quot;&gt;Execution Layer&lt;/span&gt;" vertex="1">
+          <mxGeometry height="300" width="470" x="1470" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-30" parent="rUseuIQZ4pfgzGg4-DKg-26" style="swimlane;whiteSpace=wrap;html=1;startSize=40;rounded=1;fillStyle=auto;glass=0;swimlaneLine=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;span style=&quot;font-size: 18px; font-weight: normal;&quot;&gt;RAG Pipeline&lt;/span&gt;" vertex="1">
+          <mxGeometry height="240" width="210" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-32" parent="rUseuIQZ4pfgzGg4-DKg-30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;direction=south;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Retriever&lt;/font&gt;" vertex="1">
+          <mxGeometry height="43.75" width="190" x="10" y="53.120000000000005" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-33" parent="rUseuIQZ4pfgzGg4-DKg-30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;direction=south;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;ChromaDB&lt;/font&gt;" vertex="1">
+          <mxGeometry height="43.75" width="190" x="10" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-34" parent="rUseuIQZ4pfgzGg4-DKg-30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;direction=south;" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;Embeddings&lt;/font&gt;" vertex="1">
+          <mxGeometry height="43.75" width="190" x="10" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-31" parent="rUseuIQZ4pfgzGg4-DKg-26" style="swimlane;whiteSpace=wrap;html=1;startSize=40;rounded=1;fillStyle=auto;glass=0;swimlaneLine=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;span style=&quot;font-size: 18px; font-weight: normal;&quot;&gt;Actions&lt;/span&gt;" vertex="1">
+          <mxGeometry height="170" width="210" x="240" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-35" parent="rUseuIQZ4pfgzGg4-DKg-31" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;direction=south;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Appointment Manager&lt;/font&gt;" vertex="1">
+          <mxGeometry height="43.75" width="190" x="10" y="53.120000000000005" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-36" parent="rUseuIQZ4pfgzGg4-DKg-31" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;direction=south;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Message Manager&lt;/font&gt;" vertex="1">
+          <mxGeometry height="43.75" width="190" x="10" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-44" parent="rUseuIQZ4pfgzGg4-DKg-26" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Chat Tool&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="210" x="240" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-37" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=40;rounded=1;fillStyle=auto;glass=0;swimlaneLine=1;fillColor=#dae8fc;strokeColor=#6c8ebf;gradientColor=#7ea6e0;" value="&lt;span style=&quot;font-size: 18px;&quot;&gt;LLM Layer&lt;/span&gt;" vertex="1">
+          <mxGeometry height="130" width="470" x="980" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-38" parent="rUseuIQZ4pfgzGg4-DKg-37" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Ollama Server&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="220" x="10" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rUseuIQZ4pfgzGg4-DKg-39" parent="rUseuIQZ4pfgzGg4-DKg-37" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;gradientColor=#b3b3b3;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;Qwen3:4b&lt;/font&gt;" vertex="1">
+          <mxGeometry height="50" width="220" x="240" y="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

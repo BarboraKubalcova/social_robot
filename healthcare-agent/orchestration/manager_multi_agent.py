@@ -1,3 +1,18 @@
+"""
+Multi-Agent Manager with Coordinator pattern.
+
+Architecture:
+  1. Coordinator agent reads the user message and delegates to one of four sub-agents.
+  2. Each sub-agent uses the LLM to decide on its action, then executes the
+     corresponding tool.  Every decision and execution step is timed and printed.
+
+Sub-agents:
+  - appointment_agent   → list_slots, list_appointments, book, cancel, reschedule
+  - medical_knowledge_agent → RAG retrieval + grounded answer
+  - messaging_agent     → send message to a doctor
+  - chat_agent          → casual conversation / emotional support
+"""
+
 import json
 import logging
 import os
@@ -13,432 +28,518 @@ from execution.rag.retrieve import Retriever
 from execution.actions.appointments import AppointmentManager
 from execution.actions.messaging import MessageManager
 
-from contextlib import contextmanager
-
-
 logger = logging.getLogger("MultiAgentManager")
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
-@contextmanager
-def timed(label: str):
-    t0 = time.perf_counter()
-    try:
-        yield
-    finally:
-        logger.info("%s took %.2fs", label, time.perf_counter() - t0)
+def _load_prompt(name: str) -> str:
+    path = PROMPTS_DIR / name
+    return path.read_text(encoding="utf-8")
 
 
-def _load_prompt(filename: str) -> str:
-    return (PROMPTS_DIR / filename).read_text()
+def _timed(label: str):
+    """Simple context-manager that prints and logs elapsed time."""
+    class _Timer:
+        def __init__(self):
+            self.elapsed = 0.0
+        def __enter__(self):
+            self._t0 = time.perf_counter()
+            return self
+        def __exit__(self, *_):
+            self.elapsed = time.perf_counter() - self._t0
+            msg = f"[TIMER] {label}: {self.elapsed:.3f}s"
+            print(msg)
+            logger.info(msg)
+    return _Timer()
+
+
+def _safe_format(template: str, **kwargs) -> str:
+    """Replace {key} placeholders without touching other braces (safe for JSON)."""
+    for key, value in kwargs.items():
+        template = template.replace("{" + key + "}", str(value))
+    return template
 
 
 def _parse_json(text: str) -> Optional[Dict]:
-    """Extract the first JSON object from LLM output."""
-    # Try direct parse first
-    text = text.strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
+    """Extract the first JSON object from LLM output (tolerates markdown fences)."""
+    # Strip <think>…</think> blocks
+    text = re.sub(r"<think>[\s\S]*?</think>", "", text)
+    text = re.sub(r"^[\s\S]*?</think>", "", text)
 
-    # Strip markdown fences
-    cleaned = re.sub(r"```(?:json)?\s*", "", text)
-    cleaned = re.sub(r"```", "", cleaned)
-    try:
-        return json.loads(cleaned.strip())
-    except json.JSONDecodeError:
-        pass
-
-    # Find first { ... } block
-    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-    if match:
+    # Try to find JSON in code fences first
+    m = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", text)
+    if m:
         try:
-            return json.loads(match.group())
+            return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
 
+    # Try raw JSON
+    m = re.search(r"\{[\s\S]*\}", text)
+    if m:
+        try:
+            return json.loads(m.group(0))
+        except json.JSONDecodeError:
+            pass
     return None
-
-
-# ---------------------------------------------------------------------------
-# Specialist agents
-# ---------------------------------------------------------------------------
-
-class AppointmentAgent:
-    """Handles all appointment-related operations."""
-
-    def __init__(self, llm: OllamaClient, appointments: AppointmentManager, tools_exec: ToolExecutor):
-        self.llm = llm
-        self.appointments = appointments
-        self.tools_exec = tools_exec
-        self.prompt_template = _load_prompt("appointment_agent_prompt.md")
-
-    def execute(self, task: str, history_text: str) -> Dict[str, Any]:
-        """Run the appointment agent and return a structured report."""
-        available_slots = self.appointments.list_available_slots()
-        booked = self.appointments.get_patient_appointments()
-
-        slots_preview = ", ".join(
-            f"{s['id']} ({s.get('day', '')} {s.get('date', '')} {s.get('time', '')})"
-            for s in available_slots[:12]
-        )
-        appts_preview = ", ".join(
-            f"{a['id']} ({a.get('day', '')} {a.get('date', '')} {a.get('time', '')})"
-            for a in booked[:8]
-        )
-        available_data = (
-            f"Available slots: {slots_preview or 'none'}\n"
-            f"Booked appointments: {appts_preview or 'none'}"
-        )
-
-        prompt = self.prompt_template.format(
-            available_data=available_data,
-            history=history_text,
-            task=task,
-        )
-
-        with timed("appointment_agent LLM"):
-            raw = self.llm.generate(prompt)
-
-        decision = _parse_json(raw)
-        if not decision:
-            return {"success": False, "report": "Could not understand the appointment request. Please try again."}
-
-        action = decision.get("action", "")
-        return self._execute_action(action, decision, available_slots, booked)
-
-    def _execute_action(
-        self, action: str, decision: Dict, available_slots: list, booked: list
-    ) -> Dict[str, Any]:
-        if action == "list_slots":
-            result = self.tools_exec.run_list_slots()
-            return {"success": True, "report": result}
-
-        if action == "list_appointments":
-            result = self.tools_exec.run_list_appointments()
-            return {"success": True, "report": result}
-
-        if action == "book":
-            slot_id = decision.get("slot_id") or self._infer_slot(decision, available_slots)
-            if not slot_id:
-                return {"success": False, "report": "Could not determine which slot to book. Please specify a slot or day."}
-            result = self.tools_exec.run_book_appointment_by_id(slot_id)
-            return {"success": "successfully" in result.lower(), "report": result}
-
-        if action == "cancel":
-            appt_id = decision.get("appointment_id") or self._infer_appointment(decision, booked)
-            if not appt_id:
-                return {"success": False, "report": "Could not determine which appointment to cancel. Please specify."}
-            result = self.tools_exec.run_cancel_appointment_by_id(appt_id)
-            return {"success": "canceled" in result.lower() or "successfully" in result.lower(), "report": result}
-
-        if action == "reschedule":
-            appt_id = decision.get("appointment_id") or self._infer_appointment(decision, booked)
-            new_slot = decision.get("new_slot_id") or decision.get("slot_id") or self._infer_slot(decision, available_slots)
-            if not appt_id:
-                return {"success": False, "report": "Could not determine which appointment to reschedule."}
-            if not new_slot:
-                return {"success": False, "report": "Please specify the new day or slot for rescheduling."}
-            result = self.tools_exec.run_reschedule_appointment_by_id(appt_id, new_slot)
-            return {"success": "successfully" in result.lower(), "report": result}
-
-        if action == "clarify":
-            msg = decision.get("message", "Could you please provide more details about your appointment request?")
-            return {"success": True, "report": msg, "needs_clarification": True}
-
-        return {"success": False, "report": f"Unknown appointment action: {action}"}
-
-    def _infer_slot(self, decision: Dict, available_slots: list) -> Optional[str]:
-        """Try to match a day name to the first available slot on that day."""
-        day = decision.get("day", "")
-        if not day:
-            return available_slots[0]["id"] if available_slots else None
-        for s in available_slots:
-            if day.lower() in (s.get("day", "") or "").lower():
-                return s["id"]
-        return None
-
-    def _infer_appointment(self, decision: Dict, booked: list) -> Optional[str]:
-        """Try to find the appointment by day or return the only one."""
-        day = decision.get("day", "")
-        if day:
-            for a in booked:
-                if day.lower() in (a.get("day", "") or "").lower():
-                    return a["id"]
-        if len(booked) == 1:
-            return booked[0]["id"]
-        return None
-
-
-class MedicalKnowledgeAgent:
-    """Answers medical/clinic questions using RAG."""
-
-    def __init__(self, llm: OllamaClient, retriever: Retriever, tools_exec: ToolExecutor):
-        self.llm = llm
-        self.retriever = retriever
-        self.tools_exec = tools_exec
-        self.prompt_template = _load_prompt("medical_knowledge_agent_prompt.md")
-
-    def execute(self, task: str, history_text: str) -> Dict[str, Any]:
-        with timed("medical_knowledge_agent RAG retrieval"):
-            context_str, mode = self.tools_exec.run_rag_tool(task, history_text)
-
-        prompt = self.prompt_template.format(
-            context=context_str,
-            history=history_text,
-            task=task,
-        )
-
-        with timed("medical_knowledge_agent LLM"):
-            raw = self.llm.generate(prompt)
-
-        parsed = _parse_json(raw)
-        if parsed:
-            answer = parsed.get("answer", raw)
-            sources = parsed.get("sources", [])
-            grounded = parsed.get("grounded", mode == "rag")
-            source_note = f" (Sources: {', '.join(sources)})" if sources else ""
-            return {
-                "success": True,
-                "report": f"{answer}{source_note}",
-                "grounded": grounded,
-                "mode": mode,
-            }
-
-        # Fallback: use raw text if JSON parsing fails
-        return {"success": True, "report": raw.strip(), "grounded": mode == "rag", "mode": mode}
-
-
-class MessagingAgent:
-    """Handles doctor messaging."""
-
-    def __init__(self, llm: OllamaClient, messaging: MessageManager, tools_exec: ToolExecutor):
-        self.llm = llm
-        self.messaging = messaging
-        self.tools_exec = tools_exec
-        self.prompt_template = _load_prompt("messaging_agent_prompt.md")
-
-    def execute(self, task: str, history_text: str) -> Dict[str, Any]:
-        doctors = self.messaging.list_doctors()
-        doctors_text = ", ".join(f"{d['id']}: {d['name']}" for d in doctors)
-
-        prompt = self.prompt_template.format(
-            doctors=doctors_text,
-            history=history_text,
-            task=task,
-        )
-
-        with timed("messaging_agent LLM"):
-            raw = self.llm.generate(prompt)
-
-        decision = _parse_json(raw)
-        if not decision:
-            return {"success": False, "report": "Could not process the messaging request."}
-
-        if decision.get("action") == "clarify":
-            return {"success": True, "report": decision.get("message", "What would you like to say to the doctor?"), "needs_clarification": True}
-
-        recipient = decision.get("recipient", doctors[0]["id"] if doctors else "doc_1")
-        subject = decision.get("subject", "Patient message")
-        body = decision.get("body", task)
-
-        result = self.tools_exec.run_send_doctor_message(
-            f"To: {recipient}, Subject: {subject}, Body: {body}"
-        )
-        if "sent" in result.lower():
-            doctor_name = next((d["name"] for d in doctors if d["id"] == recipient), recipient)
-            return {"success": True, "report": f"Message sent to {doctor_name}. Subject: {subject}"}
-        return {"success": False, "report": "Could not send the message. Please try again."}
-
-
-class ChatAgent:
-    """Handles casual conversation and emotional support."""
-
-    def __init__(self, llm: OllamaClient):
-        self.llm = llm
-        self.prompt_template = _load_prompt("chat_agent_prompt.md")
-
-    def execute(self, task: str, history_text: str) -> Dict[str, Any]:
-        prompt = self.prompt_template.format(
-            history=history_text,
-            task=task,
-        )
-
-        with timed("chat_agent LLM"):
-            raw = self.llm.generate(prompt)
-
-        parsed = _parse_json(raw)
-        if parsed:
-            return {"success": True, "report": parsed.get("answer", raw)}
-
-        # Fallback: use raw text
-        return {"success": True, "report": raw.strip()}
-
-
-# ---------------------------------------------------------------------------
-# Coordinator / main manager
-# ---------------------------------------------------------------------------
-
-FINAL_ANSWER_PROMPT = """You are a healthcare assistant coordinator.
-A specialist agent just completed a task for the user. Compose a final, friendly answer for the patient based on the agent's report.
-
-User's original message: {user_message}
-Agent that handled the task: {agent_name}
-Agent's report: {report}
-
-Instructions:
-- Rewrite the agent's report into a natural, patient-friendly response.
-- Be concise and clear.
-- If the task was successful, confirm it.
-- If it failed or needs clarification, communicate that kindly.
-- Do NOT add information that is not in the report.
-"""
-
-AGENT_NAME_TO_INTENT = {
-    "appointment_agent": "ACTION",
-    "medical_knowledge_agent": "RAG",
-    "messaging_agent": "ACTION",
-    "chat_agent": "CHAT",
-}
-
-VALID_AGENTS = {"appointment_agent", "medical_knowledge_agent", "messaging_agent", "chat_agent"}
 
 
 class MultiAgentManager:
     """
-    Multi-agent healthcare assistant.
-
-    A coordinator agent routes user messages to specialist agents,
-    each of which executes its task and returns a structured report.
-    The coordinator then composes the final user-facing answer.
+    Coordinator-based multi-agent healthcare assistant.
     """
 
     def __init__(self) -> None:
         self.memory = ConversationMemory()
-        self.max_history_turns = int(os.getenv("MAX_HISTORY_TURNS", "3"))
+        self.max_history_turns = int(os.getenv("MAX_HISTORY_TURNS", "5"))
 
         self.llm = OllamaClient()
         self.retriever = Retriever()
         self.appointments = AppointmentManager()
         self.messaging = MessageManager()
 
-        self.tools_exec = ToolExecutor(self.retriever, self.appointments, self.messaging)
+        self.tools = ToolExecutor(self.retriever, self.appointments, self.messaging)
 
-        self.coordinator_prompt = _load_prompt("coordinator_prompt.md")
+        # Load prompt templates once
+        self._coordinator_prompt = _load_prompt("coordinator_prompt.md")
+        self._appointment_prompt = _load_prompt("appointment_agent_prompt.md")
+        self._medical_prompt = _load_prompt("medical_knowledge_agent_prompt.md")
+        self._messaging_prompt = _load_prompt("messaging_agent_prompt.md")
+        self._chat_prompt = _load_prompt("chat_agent_prompt.md")
 
-        # Initialize specialist agents
-        self.agents: Dict[str, Any] = {
-            "appointment_agent": AppointmentAgent(self.llm, self.appointments, self.tools_exec),
-            "medical_knowledge_agent": MedicalKnowledgeAgent(self.llm, self.retriever, self.tools_exec),
-            "messaging_agent": MessagingAgent(self.llm, self.messaging, self.tools_exec),
-            "chat_agent": ChatAgent(self.llm),
-        }
+        logger.info("MultiAgentManager initialized")
 
-        logger.info("MultiAgentManager initialized with agents: %s", list(self.agents.keys()))
+    # ------------------------------------------------------------------
+    # Public entry point
+    # ------------------------------------------------------------------
 
     async def process_message(self, user_message: str, user_id: str) -> Dict[str, Any]:
-        t0 = time.perf_counter()
-        logger.info("User=%s msg=%s", user_id, user_message)
+        total_t0 = time.perf_counter()
+        print(f"\n{'='*60}")
+        print(f"[MULTI-AGENT] User={user_id} Message: {user_message}")
+        print(f"{'='*60}")
 
         self.memory.add_turn("user", user_message)
         history_text = self._build_history_text()
 
-        # Step 1: Coordinator decides which agent to delegate to
-        with timed("coordinator routing"):
-            delegation = self._route(user_message, history_text)
+        # --- Step 1: Coordinator decides which agent ---
+        with _timed("Coordinator decision") as coord_timer:
+            coordinator_result = self._run_coordinator(user_message, history_text)
 
-        agent_name = delegation.get("agent", "chat_agent")
-        task = delegation.get("task", user_message)
+        agent_name = coordinator_result.get("agent", "chat_agent")
+        task = coordinator_result.get("task", user_message)
+        reasoning = coordinator_result.get("reasoning", "")
 
-        if agent_name not in VALID_AGENTS:
-            logger.warning("Coordinator selected unknown agent '%s', falling back to chat_agent", agent_name)
-            agent_name = "chat_agent"
+        print(f"[COORDINATOR] Agent: {agent_name}")
+        print(f"[COORDINATOR] Task: {task}")
+        print(f"[COORDINATOR] Reasoning: {reasoning}")
 
-        logger.info("Delegating to %s: %s", agent_name, task[:80])
+        # --- Step 2: Delegate to the chosen sub-agent ---
+        with _timed(f"Sub-agent '{agent_name}' execution") as agent_timer:
+            if agent_name == "appointment_agent":
+                response = self._run_appointment_agent(task, history_text, user_message)
+            elif agent_name == "medical_knowledge_agent":
+                response = self._run_medical_knowledge_agent(task, history_text, user_message)
+            elif agent_name == "messaging_agent":
+                response = self._run_messaging_agent(task, history_text)
+            else:
+                response = self._run_chat_agent(task, history_text)
 
-        # Step 2: Specialist agent executes the task
-        with timed(f"{agent_name} execution"):
-            report = self.agents[agent_name].execute(task, history_text)
-
-        logger.info("Agent %s report: success=%s", agent_name, report.get("success"))
-
-        # Step 3: Coordinator composes the final answer
-        with timed("coordinator final answer"):
-            response = self._compose_final_answer(user_message, agent_name, report)
-
-        intent = AGENT_NAME_TO_INTENT.get(agent_name, "CHAT")
         self.memory.add_turn("assistant", response)
 
-        logger.info(
-            "Done user=%s agent=%s intent=%s total=%.2fs",
-            user_id, agent_name, intent, time.perf_counter() - t0,
-        )
+        total_elapsed = time.perf_counter() - total_t0
+        print(f"\n[MULTI-AGENT] Total time: {total_elapsed:.3f}s")
+        print(f"[MULTI-AGENT] Final response: {response[:200]}")
+        print(f"{'='*60}\n")
 
         return {
             "response": response,
-            "intent": intent,
-            "agent": agent_name,
+            "intent": agent_name,
             "history": self.memory.get_recent_history(),
         }
 
-    def _route(self, user_message: str, history_text: str) -> Dict:
-        """Ask the coordinator LLM which agent should handle this message."""
-        prompt = self.coordinator_prompt.format(
+    # ------------------------------------------------------------------
+    # Coordinator
+    # ------------------------------------------------------------------
+
+    def _run_coordinator(self, user_message: str, history_text: str) -> Dict:
+        prompt = _safe_format(
+            self._coordinator_prompt,
             history=history_text,
             user_message=user_message,
         )
         raw = self.llm.generate(prompt)
+        print(f"[COORDINATOR] Raw LLM output: {raw}")
+
         parsed = _parse_json(raw)
-        if parsed and parsed.get("agent") in VALID_AGENTS:
+        if parsed and "agent" in parsed:
             return parsed
 
-        # Keyword fallback if LLM output is unparseable
-        return self._keyword_fallback(user_message)
+        # Fallback: try to extract agent name from free text
+        print("[COORDINATOR] JSON parsing failed, attempting text recovery")
+        agent = self._recover_agent_from_text(raw)
+        if agent:
+            return {"agent": agent, "task": user_message, "reasoning": "recovered from free-text LLM output"}
 
-    def _keyword_fallback(self, message: str) -> Dict:
-        """Simple keyword-based routing as a safety net."""
+        # Final fallback: keyword-based routing
+        print("[COORDINATOR] Recovery failed, falling back to keyword routing")
+        return self._fallback_route(user_message)
+
+    def _recover_agent_from_text(self, text: str) -> Optional[str]:
+        """Try to extract agent name from free-text coordinator output."""
+        text_lower = text.lower()
+        agents = ["messaging_agent", "appointment_agent", "medical_knowledge_agent", "chat_agent"]
+        for agent in agents:
+            if agent in text_lower:
+                print(f"[COORDINATOR] Recovered agent from text: {agent}")
+                return agent
+        # Also try partial matches
+        if re.search(r"\bmessaging\b", text_lower):
+            return "messaging_agent"
+        if re.search(r"\bappointment\b", text_lower):
+            return "appointment_agent"
+        if re.search(r"\bmedical.knowledge\b", text_lower):
+            return "medical_knowledge_agent"
+        if re.search(r"\bchat\b", text_lower):
+            return "chat_agent"
+        return None
+
+    def _fallback_route(self, message: str) -> Dict:
         msg = message.lower()
 
-        appointment_keywords = [
-            "appointment", "book", "cancel", "reschedule", "slot",
-            "schedule", "available", "rebook", "move", "free time",
-        ]
-        if any(kw in msg for kw in appointment_keywords):
-            return {"agent": "appointment_agent", "task": message}
+        if re.search(r"\b(appointment|book|cancel|reschedule|slot|schedule|rebook)\b", msg):
+            return {"agent": "appointment_agent", "task": message, "reasoning": "keyword fallback: appointment-related"}
+        if re.search(r"\b(message|email|write to|contact|send)\b.*\b(doctor|dr)\b", msg):
+            return {"agent": "messaging_agent", "task": message, "reasoning": "keyword fallback: messaging"}
+        if re.search(
+            r"\b(mri|ct|ultrasound|x[\s-]?ray|procedure|preparation|prepare|examination|"
+            r"treatment|policy|insurance|clinic|diagnos|roentgen)\b", msg
+        ):
+            return {"agent": "medical_knowledge_agent", "task": message, "reasoning": "keyword fallback: medical knowledge"}
 
-        medical_keywords = [
-            "prepare", "procedure", "mri", "ultrasound", "blood",
-            "surgery", "exam", "test", "diagnosis", "treatment",
-            "fasting", "medication", "policy", "rule",
-        ]
-        if any(kw in msg for kw in medical_keywords):
-            return {"agent": "medical_knowledge_agent", "task": message}
+        return {"agent": "chat_agent", "task": message, "reasoning": "keyword fallback: no specific match"}
 
-        messaging_keywords = ["message", "email", "send", "doctor", "write to"]
-        if any(kw in msg for kw in messaging_keywords):
-            return {"agent": "messaging_agent", "task": message}
+    # ------------------------------------------------------------------
+    # Appointment Agent
+    # ------------------------------------------------------------------
 
-        return {"agent": "chat_agent", "task": message}
+    def _run_appointment_agent(self, task: str, history_text: str, user_message: str) -> str:
+        # Gather available data for the prompt
+        available_slots = self.appointments.list_available_slots()
+        booked_appointments = self.appointments.get_patient_appointments()
+        available_data = self._format_available_data(available_slots, booked_appointments)
 
-    def _compose_final_answer(self, user_message: str, agent_name: str, report: Dict) -> str:
-        """Let the coordinator LLM compose a patient-friendly final answer."""
-        report_text = report.get("report", "No report available.")
+        # Step 1: LLM decides which appointment action to take
+        with _timed("Appointment agent LLM decision"):
+            prompt = _safe_format(
+                self._appointment_prompt,
+                available_data=available_data,
+                history=history_text,
+                task=task,
+            )
+            raw = self.llm.generate(prompt)
+            print(f"[APPOINTMENT AGENT] Raw LLM output: {raw}")
 
-        prompt = FINAL_ANSWER_PROMPT.format(
-            user_message=user_message,
-            agent_name=agent_name.replace("_", " ").title(),
-            report=report_text,
+        parsed = _parse_json(raw)
+        if not parsed:
+            print("[APPOINTMENT AGENT] JSON parsing failed, attempting text recovery")
+            parsed = self._recover_appointment_action_from_text(raw, task, user_message)
+
+        if not parsed:
+            print("[APPOINTMENT AGENT] Recovery failed, falling back to keyword action routing")
+            return self._appointment_fallback(user_message)
+
+        action = parsed.get("action", "clarify")
+        print(f"[APPOINTMENT AGENT] Decided action: {action}")
+        print(f"[APPOINTMENT AGENT] Parsed details: {json.dumps(parsed, indent=2)}")
+
+        # Step 2: Execute the chosen action
+        with _timed(f"Appointment tool execution ({action})"):
+            result = self._execute_appointment_action(parsed, user_message)
+
+        print(f"[APPOINTMENT AGENT] Tool result: {result}")
+        return result
+
+    def _execute_appointment_action(self, parsed: Dict, user_message: str) -> str:
+        action = parsed.get("action", "clarify")
+
+        if action == "list_slots":
+            return self.tools.run_list_slots()
+
+        if action == "list_appointments":
+            return self.tools.run_list_appointments()
+
+        if action == "book":
+            slot_id = parsed.get("slot_id")
+            if slot_id:
+                return self.tools.run_book_appointment_by_id(slot_id)
+            # Fallback: try to extract from day/time in parsed data
+            day = parsed.get("day")
+            time_val = parsed.get("time")
+            if day or time_val:
+                return self._book_by_day_time(day, time_val)
+            return self.tools.run_book_appointment(user_message)
+
+        if action == "cancel":
+            appt_id = parsed.get("appointment_id")
+            if appt_id:
+                return self.tools.run_cancel_appointment_by_id(appt_id)
+            return self.tools.run_cancel_appointment(user_message)
+
+        if action == "reschedule":
+            appt_id = parsed.get("appointment_id")
+            new_slot_id = parsed.get("new_slot_id")
+            if appt_id and new_slot_id:
+                return self.tools.run_reschedule_appointment_by_id(appt_id, new_slot_id)
+            return self.tools.run_reschedule_appointment(user_message)
+
+        # clarify or unknown action
+        message = parsed.get("message", "Could you please provide more details about your appointment request?")
+        return message
+
+    def _book_by_day_time(self, day: Optional[str], time_val: Optional[str]) -> str:
+        """Attempt to find a matching slot by day and/or time and book it."""
+        available = self.appointments.list_available_slots()
+        if not available:
+            return "There are no available slots to book right now."
+
+        candidates = available
+        if day:
+            candidates = [s for s in candidates if s.get("day", "").lower() == day.lower()]
+        if time_val:
+            candidates = [s for s in candidates if s.get("time", "") == time_val]
+
+        if candidates:
+            slot_id = candidates[0]["id"]
+            return self.tools.run_book_appointment_by_id(slot_id)
+
+        label = " ".join(filter(None, [day, time_val]))
+        return f"I could not find an available slot for {label}."
+
+    def _appointment_fallback(self, message: str) -> str:
+        """Keyword-based fallback if appointment LLM parsing fails."""
+        return self.tools.run_action_tool(message)
+
+    def _recover_appointment_action_from_text(
+        self, llm_text: str, task: str, user_message: str
+    ) -> Optional[Dict]:
+        """Try to extract a usable action from free-text LLM output.
+
+        If the LLM ignored the JSON-only instruction but still reasoned its way
+        to a slot/time/appointment, we can salvage that into a proper action dict.
+        """
+        text = llm_text.lower()
+        combined = (task + " " + user_message).lower()
+
+        # Try to extract a slot_id mentioned in the text
+        slot_match = re.search(r"\bslot[_\s-]?(\d+)\b", text)
+        slot_id = f"slot_{slot_match.group(1)}" if slot_match else None
+
+        # Try to extract an appointment_id mentioned in the text
+        appt_match = re.search(r"\bappt[_\s-]?(\d+)\b", text)
+        appt_id = f"appt_{appt_match.group(1)}" if appt_match else None
+
+        # Try to extract a time (HH:MM) — take the last one as the "answer"
+        time_matches = re.findall(r"\b(\d{1,2}:\d{2})\b", text)
+        found_time = time_matches[-1] if time_matches else None
+
+        # Try to extract a day
+        day_match = re.search(
+            r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", text
+        )
+        found_day = day_match.group(1) if day_match else None
+
+        # Determine intended action from the original task/user_message
+        if re.search(r"\b(reschedule|rebook|move|change)\b", combined):
+            action = "reschedule"
+        elif re.search(r"\bcancel\b", combined):
+            action = "cancel"
+        elif re.search(r"\b(book|schedule|reserve|slot for)\b", combined):
+            action = "book"
+        elif re.search(r"\b(list|show|available|free)\b.*\bslot", combined):
+            action = "list_slots"
+        elif re.search(r"\b(my|list|show)\b.*\bappointment", combined):
+            action = "list_appointments"
+        else:
+            action = "book"  # default for appointment agent context
+
+        # If we found a time but no slot_id, try to resolve it from available slots
+        if not slot_id and found_time:
+            available = self.appointments.list_available_slots()
+            candidates = available
+            if found_day:
+                candidates = [s for s in candidates if s.get("day", "").lower() == found_day]
+            candidates = [s for s in candidates if s.get("time", "") == found_time]
+            if candidates:
+                slot_id = candidates[0]["id"]
+                found_day = found_day or candidates[0].get("day", "")
+
+        result = {"action": action, "message": "Recovered from free-text LLM output"}
+        if slot_id:
+            result["slot_id"] = slot_id
+        if appt_id:
+            result["appointment_id"] = appt_id
+        if found_day:
+            result["day"] = found_day
+        if found_time:
+            result["time"] = found_time
+
+        # Only return if we have enough info to act
+        if action in ("list_slots", "list_appointments"):
+            return result
+        if action == "book" and (slot_id or found_time):
+            return result
+        if action == "cancel" and appt_id:
+            return result
+        if action == "reschedule" and appt_id:
+            if slot_id:
+                result["new_slot_id"] = slot_id
+            return result
+
+        print(f"[APPOINTMENT AGENT] Recovery extracted: action={action}, slot={slot_id}, "
+              f"appt={appt_id}, day={found_day}, time={found_time} — insufficient to act")
+        return None
+
+    def _format_available_data(self, slots: list, appointments: list) -> str:
+        parts = []
+        if slots:
+            slot_strs = [
+                f"  {s['id']}: {s.get('day', '')} {s.get('date', '')} at {s.get('time', '')}"
+                for s in slots[:30]
+            ]
+            more = f"\n  ... and {len(slots) - 30} more slots." if len(slots) > 30 else ""
+            parts.append("Available slots:\n" + "\n".join(slot_strs) + more)
+        else:
+            parts.append("Available slots: None")
+
+        if appointments:
+            appt_strs = [
+                f"  {a['id']}: {a.get('day', '')} {a.get('date', '')} at {a.get('time', '')}"
+                for a in appointments
+            ]
+            parts.append("Booked appointments:\n" + "\n".join(appt_strs))
+        else:
+            parts.append("Booked appointments: None")
+
+        return "\n\n".join(parts)
+
+    # ------------------------------------------------------------------
+    # Medical Knowledge Agent
+    # ------------------------------------------------------------------
+
+    def _run_medical_knowledge_agent(self, task: str, history_text: str, user_message: str) -> str:
+        # Step 1: RAG retrieval — get raw document context directly from the retriever
+        with _timed("RAG retrieval"):
+            _, prompt_kwargs, mode = self.retriever.retrieve_and_build_prompt(
+                user_message, history_text,
+            )
+            context_str = prompt_kwargs.get("context", "")
+
+        print(f"[MEDICAL AGENT] RAG mode: {mode}")
+        print(f"[MEDICAL AGENT] Context length: {len(context_str)} chars")
+
+        # Step 2: LLM generates answer from context
+        with _timed("Medical knowledge LLM answer"):
+            prompt = _safe_format(
+                self._medical_prompt,
+                context=context_str,
+                history=history_text,
+                task=task,
+            )
+            raw = self.llm.generate(prompt)
+            print(f"[MEDICAL AGENT] Raw LLM output: {raw}")
+
+        parsed = _parse_json(raw)
+        if parsed and "answer" in parsed:
+            answer = parsed["answer"]
+            sources = parsed.get("sources", [])
+            grounded = parsed.get("grounded", False)
+            print(f"[MEDICAL AGENT] Grounded: {grounded}, Sources: {sources}")
+            return answer
+
+        # If JSON parsing fails, return the raw text (cleaned)
+        cleaned = re.sub(r"<think>[\s\S]*?</think>", "", raw).strip()
+        cleaned = re.sub(r"^[\s\S]*?</think>", "", cleaned).strip()
+        return cleaned if cleaned else "I'm sorry, I couldn't find an answer to your question."
+
+    # ------------------------------------------------------------------
+    # Messaging Agent
+    # ------------------------------------------------------------------
+
+    def _run_messaging_agent(self, task: str, history_text: str) -> str:
+        doctors = self.messaging.list_doctors()
+        doctors_str = "\n".join(
+            f"  {d['id']}: {d['name']}" for d in doctors
         )
 
-        raw = self.llm.generate(prompt)
-        text = raw.strip() if raw else ""
+        # Step 1: LLM decides message details
+        with _timed("Messaging agent LLM decision"):
+            prompt = _safe_format(
+                self._messaging_prompt,
+                doctors=doctors_str,
+                history=history_text,
+                task=task,
+            )
+            raw = self.llm.generate(prompt)
+            print(f"[MESSAGING AGENT] Raw LLM output: {raw}")
 
-        # Strip thinking tags if present (some models like qwen3 emit these)
-        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+        parsed = _parse_json(raw)
+        if not parsed:
+            print("[MESSAGING AGENT] JSON parsing failed")
+            return "I couldn't understand the message details. Could you please rephrase?"
 
-        return text if text else report_text
+        action = parsed.get("action", "clarify")
+        print(f"[MESSAGING AGENT] Action: {action}")
+
+        if action == "send_message":
+            recipient = parsed.get("recipient", doctors[0]["id"] if doctors else "doc_1")
+            subject = parsed.get("subject", "Patient message")
+            body = parsed.get("body", task)
+
+            with _timed("Send message execution"):
+                ok = self.messaging.send_message(
+                    recipient_id=recipient,
+                    subject=subject,
+                    body=body,
+                )
+
+            if ok:
+                # Find doctor name for user-friendly response
+                doc_name = next((d["name"] for d in doctors if d["id"] == recipient), recipient)
+                return f"Your message has been sent to {doc_name}."
+            return "I'm sorry, I couldn't send the message. Please try again."
+
+        # clarify
+        message = parsed.get("message", "Could you please provide more details about the message you want to send?")
+        return message
+
+    # ------------------------------------------------------------------
+    # Chat Agent
+    # ------------------------------------------------------------------
+
+    def _run_chat_agent(self, task: str, history_text: str) -> str:
+        with _timed("Chat agent LLM response"):
+            prompt = _safe_format(
+                self._chat_prompt,
+                history=history_text,
+                task=task,
+            )
+            raw = self.llm.generate(prompt)
+            print(f"[CHAT AGENT] Raw LLM output: {raw}")
+
+        parsed = _parse_json(raw)
+        if parsed and "answer" in parsed:
+            return parsed["answer"]
+
+        # Clean up raw text
+        cleaned = re.sub(r"<think>[\s\S]*?</think>", "", raw).strip()
+        cleaned = re.sub(r"^[\s\S]*?</think>", "", cleaned).strip()
+        return cleaned if cleaned else "Hello! How can I help you today?"
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
     def _build_history_text(self) -> str:
         turns = self.memory.get_recent_history(limit=self.max_history_turns)

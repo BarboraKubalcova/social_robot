@@ -130,6 +130,10 @@ Args:
 {
   "slot_id": <string>
 }
+Use this to book a specific slot. Requires a slot_id (e.g. "slot_3").
+If the user wants to book an appointment but does NOT specify a slot or slot_id,
+use "list_slots" first so the user can see available options and choose one.
+If the user says just a day and time, calculate the slot_id using the mapping below.
 
 6. "cancel_appointment"
 Args:
@@ -143,14 +147,31 @@ Args:
   "appointment_id": <string>,
   "new_slot_id": <string>
 }
+If the user wants to reschedule but does not specify a slot, use "list_slots"
+first to show available options.
 
-8. "respond"
+8. "send_doctor_message"
+Args:
+{
+  "body": <string>
+}
+Use this to send a message to the patient's doctor. The body should be in professional and respectful tone.
+
+9. "respond"
 Args:
 {
   "style": "brief" | "normal"
 }
 Use this after backend tools when the system should summarize
 the collected tool results into a final user-facing response.
+
+SLOT ID MAPPING
+Each day has 9 slots starting at 7:30, in 30-minute increments (last slot at 16:00).
+- Monday: slot_1 to slot_9
+- Tuesday: slot_10 to slot_18
+- Wednesday: slot_19 to slot_27
+For example, Monday 7:30 = slot_1, Monday 8:00 = slot_2, Tuesday 7:30 = slot_10, etc.
+If the user mentions a day and time, compute the correct slot_id from this mapping.
 
 RULES
 - Output STRICT JSON only.
@@ -167,6 +188,8 @@ RULES
 - If the request needs backend info or action, usually end with "respond".
 - If the request is casual conversation only, use only one "chat" step.
 - Prefer short plans.
+- If the user wants to book or reschedule without specifying a slot,
+  use "list_slots" first and then "respond" to let the user choose.
 
 EXAMPLES
 
@@ -211,6 +234,33 @@ Output:
 {
   "steps": [
     {"tool": "book_appointment", "args": {"slot_id": "slot_12"}},
+    {"tool": "respond", "args": {"style": "brief"}}
+  ]
+}
+
+User: "I want to book an appointment"
+Output:
+{
+  "steps": [
+    {"tool": "list_slots", "args": {}},
+    {"tool": "respond", "args": {"style": "normal"}}
+  ]
+}
+
+User: "I'd like to schedule a visit"
+Output:
+{
+  "steps": [
+    {"tool": "list_slots", "args": {}},
+    {"tool": "respond", "args": {"style": "normal"}}
+  ]
+}
+
+User: "Book me for Tuesday at 8:00"
+Output:
+{
+  "steps": [
+    {"tool": "book_appointment", "args": {"slot_id": "slot_11"}},
     {"tool": "respond", "args": {"style": "brief"}}
   ]
 }
@@ -292,13 +342,13 @@ Return only valid JSON.
                 ]
             }
 
-        # if "message doctor" in text or "send message" in text or "email doctor" in text:
-        #     return {
-        #         "steps": [
-        #             {"tool": "send_doctor_message", "args": {"body": user_input}},
-        #             {"tool": "respond", "args": {"style": "brief"}}
-        #         ]
-        #     }
+        if "message doctor" in text or "send message" in text or "email doctor" in text:
+            return {
+                "steps": [
+                    {"tool": "send_doctor_message", "args": {"body": user_input}},
+                    {"tool": "respond", "args": {"style": "brief"}}
+                ]
+            }
 
         rag_keywords = [
             "mri", "ct", "x-ray", "xray", "roentgen", "prepare", "preparation",
@@ -327,7 +377,7 @@ Return only valid JSON.
             "book_appointment",
             "cancel_appointment",
             "reschedule_appointment",
-            # "send_doctor_message",
+            "send_doctor_message",
             "respond",
         }
 
@@ -348,12 +398,55 @@ Return only valid JSON.
                 continue
             if not isinstance(args, dict):
                 args = {}
+            if not self._validate_args(tool, args):
+                self.logger.warning("Invalid args for tool %s: %s", tool, args)
+                continue
             cleaned.append({"tool": tool, "args": args})
 
         if not cleaned:
             return self._naive_backup_plan("")
 
         return {"steps": cleaned}
+
+    @staticmethod
+    def _validate_args(tool: str, args: dict) -> bool:
+        """Validate that argument values match expected schemas."""
+        slot_pattern = re.compile(r"^slot_\d+$")
+        appt_pattern = re.compile(r"^appt_\d+$")
+
+        if tool == "chat":
+            return bool(isinstance(args.get("message"), str) and args["message"].strip())
+
+        if tool == "rag_search":
+            return bool(isinstance(args.get("question"), str) and args["question"].strip())
+
+        if tool in ("list_slots", "list_appointments"):
+            return True
+
+        if tool == "book_appointment":
+            slot_id = args.get("slot_id")
+            return bool(isinstance(slot_id, str) and slot_pattern.match(slot_id))
+
+        if tool == "cancel_appointment":
+            appt_id = args.get("appointment_id")
+            return bool(isinstance(appt_id, str) and appt_pattern.match(appt_id))
+
+        if tool == "reschedule_appointment":
+            appt_id = args.get("appointment_id")
+            new_slot = args.get("new_slot_id")
+            return bool(
+                isinstance(appt_id, str) and appt_pattern.match(appt_id)
+                and isinstance(new_slot, str) and slot_pattern.match(new_slot)
+            )
+
+        if tool == "send_doctor_message":
+            return bool(isinstance(args.get("body"), str) and args["body"].strip())
+
+        if tool == "respond":
+            style = args.get("style", "normal")
+            return style in ("brief", "normal")
+
+        return True
 
     # ------------------------------------------------------------------
     # Execution
@@ -455,28 +548,28 @@ Return only valid JSON.
                         }
                     })
 
-                # elif tool == "send_doctor_message":
-                #     body = str(args.get("body", "")).strip()
-                #     doctors = self.messaging.list_doctors()
-                #     recipient = doctors[0]["id"] if doctors else "doc_1"
-                #     ok = self.messaging.send_message(
-                #         recipient_id=recipient,
-                #         subject="Patient request",
-                #         body=body,
-                #     )
-                #     execution_log.append({
-                #         "tool": "send_doctor_message",
-                #         "ok": bool(ok),
-                #         "message": (
-                #             "Doctor message sent successfully."
-                #             if ok else
-                #             "Failed to send doctor message."
-                #         ),
-                #         "data": {
-                #             "recipient_id": recipient,
-                #             "body": body,
-                #         }
-                #     })
+                elif tool == "send_doctor_message":
+                    body = str(args.get("body", "")).strip()
+                    doctors = self.messaging.list_doctors()
+                    recipient = doctors[0]["id"] if doctors else "doc_1"
+                    ok = self.messaging.send_message(
+                        recipient_id=recipient,
+                        subject="Patient request",
+                        body=body,
+                    )
+                    execution_log.append({
+                        "tool": "send_doctor_message",
+                        "ok": bool(ok),
+                        "message": (
+                            "Doctor message sent successfully."
+                            if ok else
+                            "Failed to send doctor message."
+                        ),
+                        "data": {
+                            "recipient_id": recipient,
+                            "body": body,
+                        }
+                    })
 
                 elif tool == "respond":
                     print(f"Summarizing execution log for final response... {execution_log}")
@@ -593,13 +686,33 @@ Return only valid JSON.
             "book_appointment",
             "cancel_appointment",
             "reschedule_appointment",
+            "send_doctor_message"
         }:
             return "ACTION"
 
         return "LLM_ONLY"
 
     def _build_history_text(self) -> str:
-        return "\n".join(
-            f"{turn['role']}: {turn['content']}"
-            for turn in self.memory.get_recent_history(limit=self.max_history_turns)
-        )
+        lines = []
+        for turn in self.memory.get_recent_history(limit=self.max_history_turns):
+            content = turn["content"]
+            if turn["role"] == "assistant":
+                content = self._clean_response(content)
+            if content:
+                lines.append(f"{turn['role']}: {content}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _clean_response(text: str) -> str:
+        """Extract only the human-readable response, stripping leaked JSON."""
+        stripped = text.strip()
+        if stripped.startswith("{"):
+            try:
+                obj = json.loads(stripped)
+                if isinstance(obj, dict) and "response" in obj:
+                    resp = obj["response"]
+                    if isinstance(resp, str) and resp.strip():
+                        return resp.strip()
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return stripped

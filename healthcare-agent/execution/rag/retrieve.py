@@ -21,6 +21,9 @@ Do NOT answer old questions from the history unless the user explicitly asks aga
 DATABASE CONTEXT:
 {context}
 
+CONVERSATION HISTORY (for reference resolution only):
+{history}
+
 Question: {question}
 
 Answer:

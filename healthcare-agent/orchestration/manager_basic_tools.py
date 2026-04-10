@@ -56,6 +56,14 @@ class AgentManager:
     Agent-based healthcare assistant using exactly one tool per request.
     """
 
+    _TIMES = ["07:30", "08:30", "09:30", "10:30", "11:30", "13:00", "14:00", "15:00", "16:00"]
+    _DAYS = ["monday", "tuesday", "wednesday"]
+
+    DAY_TIME_TO_SLOT: dict[tuple[str, str], str] = {}
+    for _d_idx, _day in enumerate(_DAYS):
+        for _t_idx, _time in enumerate(_TIMES):
+            DAY_TIME_TO_SLOT[(_day, _time)] = f"slot_{_d_idx * 9 + _t_idx + 1}"
+
     def __init__(self) -> None:
         self.memory = ConversationMemory()
         self.max_history_turns = int(os.getenv("MAX_HISTORY_TURNS", "3"))
@@ -96,7 +104,7 @@ class AgentManager:
                     "Use for operations: booking, canceling, rescheduling appointments, "
                     "listing slots, listing appointments, or sending a doctor message. "
                     "If the user gives an exact time instead of a slot id, interpret it from "
-                    "the available slot order when possible."
+                    "the available slot order when possible." 
                 ),
                 func=self._action_tool_func,
             ),
@@ -186,7 +194,48 @@ class AgentManager:
 
     def _action_tool_func(self, tool_input: str) -> str:
         self._last_tool_used = "ACTION"
+        msg = tool_input.lower()
+
+        # If it looks like a booking request without a slot_id, try day+time resolution
+        if re.search(r"\b(book|schedule|reserve)\b", msg) and not re.search(r"\bslot[_\s-]?\d+\b", msg):
+            resolved = self._resolve_slot_from_day_time(tool_input)
+            if resolved:
+                return self.tools_exec.run_book_appointment_by_id(resolved)
+
         return self.tools_exec.run_action_tool(tool_input)
+
+    def _resolve_slot_from_day_time(self, message: str) -> str | None:
+        """Try to extract a day and time from the message and map to a slot_id."""
+        msg = message.lower()
+
+        day_match = re.search(r"\b(monday|tuesday|wednesday)\b", msg)
+        if not day_match:
+            return None
+        day = day_match.group(1)
+
+        time_str = None
+
+        # HH:MM
+        m = re.search(r"\b(\d{1,2}):(\d{2})\b", msg)
+        if m:
+            h, mn = int(m.group(1)), int(m.group(2))
+            time_str = f"{h:02d}:{mn:02d}"
+
+        # "7am", "2pm"
+        if not time_str:
+            m = re.search(r"\b(\d{1,2})\s*(am|pm)\b", msg)
+            if m:
+                h = int(m.group(1))
+                if m.group(2) == "pm" and h != 12:
+                    h += 12
+                elif m.group(2) == "am" and h == 12:
+                    h = 0
+                time_str = f"{h:02d}:00"
+
+        if not time_str:
+            return None
+
+        return self.DAY_TIME_TO_SLOT.get((day, time_str))
 
     # -------- Core implementations --------
 

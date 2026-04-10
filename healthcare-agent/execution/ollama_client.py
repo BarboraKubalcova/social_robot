@@ -20,7 +20,7 @@ class OllamaClient:
             temperature=temperature,
             # num_predict=num_predict,
             num_ctx=num_ctx,
-            reasoning=True,
+            think=False,
         )
 
     def generate(self, prompt: str):

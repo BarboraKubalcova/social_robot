@@ -84,9 +84,9 @@ class ToolExecutor:
         slots = self.appointments.list_available_slots()
         if not slots:
             return "There are no available slots in the current timetable."
-
-        preview = ", ".join(self._format_slot_preview(s) for s in slots[:8])
-        more = f" ... and {len(slots) - 8} more." if len(slots) > 8 else ""
+        slot_for_preview = 30
+        preview = ", ".join(self._format_slot_preview(s) for s in slots[:slot_for_preview])
+        more = f" ... and {len(slots) - slot_for_preview} more." if len(slots) > slot_for_preview else ""
         return f"Here are available slots: {preview}{more}"
 
     def run_list_appointments(self, message: str = "") -> str:
