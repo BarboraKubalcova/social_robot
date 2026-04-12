@@ -1,0 +1,31 @@
+message,expected,predicted,raw_tool,correct,time_s
+Hello,CHAT,CHAT,chat_agent,True,6.607
+Hi there!,CHAT,CHAT,chat_agent,True,7.0408
+Good morning,CHAT,CHAT,chat_agent,True,12.6306
+How are you?,CHAT,CHAT,chat_agent,True,50.3669
+Thank you for your help,CHAT,CHAT,chat_agent,True,9.3345
+Tell me a joke,CHAT,CHAT,chat_agent,True,8.1246
+I'm feeling anxious about my visit,CHAT,CHAT,chat_agent,True,55.437
+"Goodbye, see you later",CHAT,CHAT,chat_agent,True,14.0787
+What is your name?,CHAT,CHAT,chat_agent,True,9.6087
+Can you help me?,CHAT,CHAT,chat_agent,True,19.3684
+How should I prepare for an MRI?,RAG,RAG,medical_knowledge_agent,True,66.5162
+Can I wear jewelry during an MRI?,RAG,RAG,medical_knowledge_agent,True,39.0407
+How does a CT scan work?,RAG,RAG,medical_knowledge_agent,True,17.1042
+What should I do before a ultrasound examination?,RAG,RAG,medical_knowledge_agent,True,18.4905
+Tell me about X-ray preparation,RAG,RAG,medical_knowledge_agent,True,64.7875
+What is the fasting policy before taking CT?,RAG,RAG,medical_knowledge_agent,True,69.9959
+How does an ultrasound procedure work?,RAG,RAG,medical_knowledge_agent,True,83.2412
+Can I drink before ultrasound?,RAG,RAG,medical_knowledge_agent,True,13.323
+Is MRI examination safe?,RAG,RAG,medical_knowledge_agent,True,55.4539
+Can I eat before MRI?,RAG,RAG,medical_knowledge_agent,True,71.4052
+Book me an appointment for slot_1,ACTION,ACTION,appointment_agent,True,47.876
+Show me available slots,ACTION,ACTION,appointment_agent,True,70.5382
+Cancel my appointment,ACTION,ACTION,appointment_agent,True,55.1102
+Reschedule my appointment to Thursday,ACTION,ACTION,appointment_agent,True,44.2718
+What appointments do I have?,ACTION,ACTION,appointment_agent,True,8.0218
+Book slot_5,ACTION,ACTION,appointment_agent,True,8.0871
+Cancel appt_2,ACTION,ACTION,appointment_agent,True,72.0825
+I need to reschedule appt_1 to slot_9,ACTION,ACTION,appointment_agent,True,13.7625
+List my scheduled appointments,ACTION,ACTION,appointment_agent,True,7.4305
+Are there any free slots on Monday?,ACTION,ACTION,appointment_agent,True,51.8922

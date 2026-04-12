@@ -8,7 +8,7 @@ class OllamaClient:
         model_name = os.getenv("OLLAMA_MODEL", "qwen3:4b")
         temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.2"))
         # num_predict = int(os.getenv("OLLAMA_NUM_PREDICT", "256"))
-        num_ctx = int(os.getenv("OLLAMA_NUM_CTX", "2048"))
+        num_ctx = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
         self.retry_num_predict = int(os.getenv("OLLAMA_RETRY_NUM_PREDICT", "512"))
         self.model_name = model_name
         self.temperature = temperature

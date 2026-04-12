@@ -1,0 +1,19 @@
+message,expected,predicted,raw_tool,correct,time_s
+Show me available slots,LIST_SLOTS,LIST_SLOTS,LIST_SLOTS,True,0.001626
+Are there any free slots on Monday?,LIST_SLOTS,LIST_SLOTS,LIST_SLOTS,True,2e-05
+What times can I come in this week?,LIST_SLOTS,LLM,LLM,False,0.001367
+What appointments do I have?,LIST_APPOINTMENTS,LIST_APPOINTMENTS,LIST_APPOINTMENTS,True,2.1e-05
+Show my booked appointments,LIST_APPOINTMENTS,LLM,LLM,False,6.1e-05
+List my scheduled appointments,LIST_APPOINTMENTS,LIST_SLOTS,LIST_SLOTS,False,1.6e-05
+Book me an appointment for slot_5,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,7e-06
+I'd like to schedule slot_12,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,6e-06
+Reserve slot_3 for me please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,6e-06
+Cancel my appointment appt_2,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,True,0.000153
+I need to cancel appointment appt_1,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,True,1.1e-05
+Please cancel my booking appt_3,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,True,1e-05
+Reschedule appt_1 to slot_9,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,True,5e-06
+Move my appointment appt_2 to slot_15,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,True,3e-06
+I want to change appt_3 to slot_20,RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,False,1.2e-05
+Send a message to my doctor saying I feel unwell,SEND_DOCTOR_MESSAGE,SEND_DOCTOR_MESSAGE,SEND_DOCTOR_MESSAGE,True,1.5e-05
+Say my doctor about my test results,SEND_DOCTOR_MESSAGE,LLM,LLM,False,6.2e-05
+I want to contact my doctor about my medication,SEND_DOCTOR_MESSAGE,SEND_DOCTOR_MESSAGE,SEND_DOCTOR_MESSAGE,True,2e-05

@@ -40,8 +40,8 @@ async def chat_endpoint(request: ChatRequest, user: dict = Depends(get_current_u
     # result = await agent_manager.process_message(request.message, user["id"])
     # result = await deterministic_manager.process_message(request.message, user["id"])
     # result = await planned_manager.process_message(request.message, user["id"])
-    # result = await agent_multi_tools_manager.process_message(request.message, user["id"])
-    result = await multi_agent_manager.process_message(request.message, user["id"])
+    result = await agent_multi_tools_manager.process_message(request.message, user["id"])
+    # result = await multi_agent_manager.process_message(request.message, user["id"])
     print(f"[API DEBUG] Manager result: {result}")
 
     return ChatResponse(

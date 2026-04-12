@@ -42,6 +42,7 @@ IMPORTANT RULES:
 - Do NOT use LaTeX, math notation, or \\boxed{}.
 - Keep responses concise, warm, and patient-friendly.
 - Do not repeat the raw tool output back to the patient (especially if its in json format).
+- You MUST call a tool for EVERY message. NEVER answer directly without a tool call. 
 - Answer in maximum 7 sentences when using the RAG tool, and 3 sentences for general LLM responses.
 
 For the appointment booking and rescheduling tools, the user can say just a day and time.
@@ -100,7 +101,7 @@ class AgentManagerMultiTools:
 
     def __init__(self) -> None:
         self.memory = ConversationMemory()
-        self.max_history_turns = int(os.getenv("MAX_HISTORY_TURNS", "3"))
+        self.max_history_turns = int(os.getenv("MAX_HISTORY_TURNS", "1"))
 
         self.llm = OllamaClient()
         self.retriever = Retriever()
@@ -119,7 +120,11 @@ class AgentManagerMultiTools:
                     "Use for questions that should be grounded in the knowledge base, "
                     "such as medical procedures, clinic rules/policies, preparation "
                     "guidelines (e.g., 'What is an MRI?', 'How do I prepare for an ultrasound?', "
-                    "'Can I bring someone with me?'), questions about MRI, CT and ultrasound. Answer in max 7 sentences."
+                    "'Can I bring someone with me?'), questions about MRI, CT and ultrasound. " \
+                    "If patient wants to know about preparation for preparation, for example fasting policy," \
+                    " or if they ask about what to expect during a procedure, or any other question that requires"
+                    " specific knowledge about the clinic's operations, policies, or medical information, use RAG. " \
+                    "Answer in max 7 sentences."
                 ),
                 func=self._rag_tool_func,
             ),
@@ -202,7 +207,8 @@ class AgentManagerMultiTools:
                 name="SEND_DOCTOR_MESSAGE",
                 description=(
                     "Send a message or email to the patient's doctor. "
-                    "Requires the message text." 
+                    "Requires the message text. Choose this tool if a user want to contact their doctor, "
+                    "send a message to their doctor, or ask something that should be relayed to their doctor. " 
                     "Write the message in professional and respectful tone for the doctor."
                 ),
                 func=self._send_doctor_message_tool_func,

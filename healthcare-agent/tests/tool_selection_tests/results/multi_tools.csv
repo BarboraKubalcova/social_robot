@@ -1,0 +1,31 @@
+message,expected,predicted,raw_tool,correct,time_s
+Hello,CHAT,CHAT,LLM,True,24.5384
+Hi there!,CHAT,CHAT,LLM,True,37.9349
+Good morning,CHAT,CHAT,LLM,True,51.5578
+How are you?,CHAT,CHAT,LLM,True,33.4255
+Thank you for your help,CHAT,CHAT,LLM_ONLY,True,58.008
+Tell me a joke,CHAT,CHAT,LLM,True,12.6823
+I'm feeling anxious about my visit,CHAT,CHAT,LLM,True,30.3696
+"Goodbye, see you later",CHAT,CHAT,LLM_ONLY,True,125.2756
+What is your name?,CHAT,CHAT,LLM_ONLY,True,103.5728
+Can you help me?,CHAT,CHAT,LLM_ONLY,True,147.102
+How should I prepare for an MRI?,RAG,RAG,RAG,True,36.4883
+Can I wear jewelry during an MRI?,RAG,CHAT,LLM_ONLY,False,129.4504
+How does a CT scan work?,RAG,RAG,RAG,True,137.4595
+What should I do before a ultrasound examination?,RAG,RAG,RAG,True,35.7726
+Tell me about X-ray preparation,RAG,RAG,RAG,True,56.6835
+What is the fasting policy before taking CT?,RAG,RAG,RAG,True,164.5045
+How does an ultrasound procedure work?,RAG,RAG,RAG,True,45.9067
+Can I drink before ultrasound?,RAG,RAG,RAG,True,23.9811
+Is MRI examination safe?,RAG,RAG,RAG,True,18.5661
+Can I eat before MRI?,RAG,RAG,RAG,True,22.3264
+Book me an appointment for slot_1,ACTION,ACTION,BOOK_APPOINTMENT,True,20.4572
+Show me available slots,ACTION,CHAT,LLM_ONLY,False,200.096
+Cancel my appointment,ACTION,ACTION,LIST_APPOINTMENTS,True,29.0695
+Reschedule my appointment to Thursday,ACTION,ACTION,LIST_APPOINTMENTS,True,208.6685
+What appointments do I have?,ACTION,ACTION,LIST_APPOINTMENTS,True,14.2326
+Book slot_5,ACTION,ACTION,BOOK_APPOINTMENT,True,38.8786
+Cancel appt_2,ACTION,ACTION,CANCEL_APPOINTMENT,True,11.1513
+I need to reschedule appt_1 to slot_9,ACTION,ACTION,RESCHEDULE_APPOINTMENT,True,35.2948
+List my scheduled appointments,ACTION,ACTION,LIST_APPOINTMENTS,True,20.8745
+Are there any free slots on Monday?,ACTION,ACTION,LIST_SLOTS,True,32.6496
