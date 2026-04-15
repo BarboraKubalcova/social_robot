@@ -9,3 +9,5 @@ speech_recognition/.venv
 speech_recognition/__pycache__
 env
 .venv
+notes.tex
+poznamky.txt

@@ -1,0 +1,21 @@
+agent,group,message,expected_slot,booked_slot,correct,response,time_s
+planned,direct,Book slot_1 for me please,slot_1,slot_1,True,Your appointment for slot_1 has been successfully booked.,23.5303
+planned,direct,I'd like to reserve slot_5,slot_5,slot_5,True,Your appointment for slot_5 has been successfully booked!,16.5144
+planned,direct,Schedule me for slot_7,slot_7,slot_7,True,Your appointment for slot_7 has been successfully scheduled.,21.2605
+planned,direct,Can you book slot_12 for me?,slot_12,slot_12,True,Your appointment for slot_12 has been successfully booked!,16.3083
+planned,direct,Please book appointment slot_15,slot_15,slot_15,True,Your appointment for slot_15 has been successfully booked!,20.2455
+planned,direct,I want slot_18,slot_18,slot_18,True,Your appointment for slot_18 has been successfully booked.,17.5211
+planned,direct,Reserve slot_20 please,slot_20,slot_20,True,Your appointment for slot_20 has been successfully booked!,27.1565
+planned,direct,Put me down for slot_23,slot_23,slot_23,True,Your appointment for slot_23 has been successfully booked!,19.0178
+planned,direct,Book slot_25 for my appointment,slot_25,slot_25,True,Your appointment for slot_25 has been successfully booked.,15.4131
+planned,direct,I'd like to book slot_27,slot_27,slot_27,True,Your appointment for slot_27 has been successfully booked.,15.4842
+planned,day_time,Book me an appointment on Monday at 9:30,slot_3,slot_5,False,Your appointment has been successfully booked for Monday at 9:30.,40.6599
+planned,day_time,I want an appointment on Mon at 14:00,slot_7,NONE,False,Hi! Could you confirm if you mean this week's Monday or next week's Monday at 14:00?,193.741
+planned,day_time,Schedule me for Tuesday at 8:30,slot_11,slot_12,False,Your appointment for Tuesday at 8:30 has been successfully scheduled.,38.7208
+planned,day_time,Can I get an appointment on Tuesday at 13:00?,slot_15,NONE,False,I can't check real-time availability for appointments. Please check the clinic's online portal or call them directly for Tuesday at 13:00. 😊,171.3105
+planned,day_time,Book an appointment for wednesday at 7:30,slot_19,slot_19,True,Your appointment for Wednesday at 7:30 has been successfully booked!,28.6479
+planned,day_time,I'd like Wednesday at 10:30 please,slot_22,slot_25,False,Your appointment for Wednesday at 10:30 has been successfully booked! Let me know if you need any further assistance.,45.2849
+planned,day_time,Reserve me a spot on Mon at 16:00,slot_9,NONE,False,"Hi! To reserve a spot for Monday at 16:00, please check the clinic’s website or contact us directly. We’re here to help! 😊",154.6212
+planned,day_time,I want to book Tue at 15:00,slot_17,NONE,False,"Hi! To book Tuesday at 15:00, please check your calendar or contact your clinic directly for availability. They’ll help you confirm. 😊",168.6671
+planned,day_time,Can you book Wed at 14:00 for me?,slot_25,NONE,False,"I can't book appointments directly, but you can contact your healthcare provider's office to schedule Wednesday at 14:00. Let me know if you need help finding their contact details! 😊",214.4174
+planned,day_time,Schedule an appointment for Monday at 11:30,slot_5,slot_9,False,Your appointment for Monday at 11:30 has been successfully scheduled.,115.4593

@@ -1,0 +1,41 @@
+message,expected,predicted,raw_tool,correct,time_s
+"Good evening, I wish to extend my warmest greetings to you.",LLM,LLM,chat,True,15.223
+yo whats up buddy how u doing,LLM,LLM,chat,True,6.8537
+"Helo, how are yuo todya?",LLM,LLM,chat,True,106.2906
+"I am having the good day, please to tell me how you are feeling?",LLM,LLM,chat,True,18.2603
+I just wanted to drop by and say hello and see if you could maybe chat with me for a little while,LLM,LLM,chat,True,105.6535
+I would like to enquire about the preparatory procedures required prior to undergoing an MRI examination.,RAG,LLM,respond,False,35.4695
+yo what do i gotta do before getting an mri,RAG,LLM,respond,False,64.8869
+How shoud I prepre for a CT scna?,RAG,LLM,respond,False,60.9771
+"Please can you explain me what is the procedure for ultrasound, what I must do before?",RAG,LLM,respond,False,36.94
+I have an X-ray coming up soon and I was wondering if there are any special instructions or things I should know about how to get ready for it,RAG,LLM,respond,False,13.3835
+I wish to enquire about the currently available appointment slots.,LIST_SLOTS,LIST_SLOTS,list_slots,True,14.1323
+yo got any slots open?,LIST_SLOTS,LIST_SLOTS,list_slots,True,10.9086
+Shwo me avalable sltos,LIST_SLOTS,LIST_SLOTS,list_slots,True,33.2907
+I am wanting to see what times are free for making the appointment please,LIST_SLOTS,LIST_SLOTS,list_slots,True,10.5331
+Could you possibly check and let me know which time slots are still available for booking at the moment?,LIST_SLOTS,LIST_SLOTS,list_slots,True,11.4364
+I would appreciate it if you could display my currently scheduled appointments.,LIST_APPOINTMENTS,LIST_APPOINTMENTS,list_appointments,True,12.5789
+lemme see my bookings,LIST_APPOINTMENTS,LIST_APPOINTMENTS,list_appointments,True,10.0352
+Shwo my apointments pleae,LIST_APPOINTMENTS,LIST_APPOINTMENTS,list_appointments,True,17.859
+I need for to see what appointments I am having booked,LIST_APPOINTMENTS,LIST_APPOINTMENTS,list_appointments,True,16.0726
+I was wondering if you could pull up a list of all the appointments that I currently have on my schedule,LIST_APPOINTMENTS,LIST_APPOINTMENTS,list_appointments,True,8.8142
+I would like to formally request the reservation of slot_7 for my appointment.,BOOK_APPOINTMENT,BOOK_APPOINTMENT,book_appointment,True,9.0382
+yo book me in for slot_7,BOOK_APPOINTMENT,BOOK_APPOINTMENT,book_appointment,True,14.8822
+Boko slot_7 for me plase,BOOK_APPOINTMENT,BOOK_APPOINTMENT,book_appointment,True,15.5913
+I am wanting to make the booking for slot_7 please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,book_appointment,True,10.8431
+"If it's not too much trouble, I'd really like to go ahead and book slot_7 as my appointment time",BOOK_APPOINTMENT,BOOK_APPOINTMENT,book_appointment,True,11.183
+I hereby request the cancellation of my appointment appt_2.,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,cancel_appointment,True,15.0637
+cancle appt_2 pls,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,cancel_appointment,True,21.213
+Cancl my apointmnet appt_2,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,cancel_appointment,True,27.4639
+"I need for to remove my appointment appt_2, it is no longer needed",CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,cancel_appointment,True,18.0113
+I've been thinking about it and I've decided that I really need to go ahead and cancel my appointment appt_2,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,cancel_appointment,True,19.0942
+I would like to formally request that appointment appt_1 be rescheduled to slot_9.,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,reschedule_appointment,True,11.8094
+move appt_1 to slot_9 yeah?,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,reschedule_appointment,True,13.9973
+Rescheudle appt_1 to slto_9 plz,RESCHEDULE_APPOINTMENT,LLM,respond,False,70.3073
+"I am needing to change the time of appt_1, please to put it in slot_9",RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,reschedule_appointment,True,15.7434
+"I was hoping you could help me move my existing appointment appt_1 over to a different time, specifically slot_9 if that works",RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,reschedule_appointment,True,15.1084
+I wish to compose and transmit a message to my physician regarding my current symptoms.,SEND_DOCTOR_MESSAGE,LLM,chat,False,67.5947
+tell my doc i aint feeling great,SEND_DOCTOR_MESSAGE,SEND_DOCTOR_MESSAGE,send_doctor_message,True,79.2397
+Sennd a mesage to my doctr about my headaces,SEND_DOCTOR_MESSAGE,LLM,respond,False,105.065
+I am wanting for to write the message to my doctor because I have the problem with medicine,SEND_DOCTOR_MESSAGE,LLM,chat,False,64.5707
+Could you please help me get in touch with my doctor by sending them a message about how I've been feeling lately,SEND_DOCTOR_MESSAGE,LLM,chat,False,101.8969

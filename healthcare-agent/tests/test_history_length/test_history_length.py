@@ -110,6 +110,22 @@ MULTI_AGENT_MAP = {
 
 MULTI_AGENT_TO_BASIC = EXPECTED_TO_BASIC
 
+# For basic_tools: track which ToolExecutor method was called
+BASIC_TOOLS_METHOD_MAP = {
+    "run_list_slots": "LIST_SLOTS",
+    "run_list_appointments": "LIST_APPOINTMENTS",
+    "run_book_appointment": "BOOK_APPOINTMENT",
+    "run_book_appointment_by_id": "BOOK_APPOINTMENT",
+    "run_cancel_appointment": "CANCEL_APPOINTMENT",
+    "run_cancel_appointment_by_id": "CANCEL_APPOINTMENT",
+    "run_reschedule_appointment": "RESCHEDULE_APPOINTMENT",
+    "run_reschedule_appointment_by_id": "RESCHEDULE_APPOINTMENT",
+    "run_send_doctor_message": "SEND_DOCTOR_MESSAGE",
+    "run_rag_tool": "RAG",
+    "run_llm_tool": "LLM",
+    "run_action_tool": "ACTION_GENERIC",
+}
+
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +145,43 @@ def _mock_tools_exec(tools_exec):
     tools_exec.run_send_doctor_message = lambda msg: "Mock message sent."
 
 
+def _make_tracking_mock(tracker: dict):
+    """Create mock ToolExecutor methods that record which method was called."""
+    def _make(name, retval="Mock result."):
+        def fn(*args, **kwargs):
+            tracker["called"] = name
+            return retval
+        return fn
+
+    return {
+        "run_rag_tool": lambda msg, hist="": (tracker.__setitem__("called", "run_rag_tool") or "", "rag"),
+        "run_llm_tool": _make("run_llm_tool", "Mock LLM response."),
+        "run_action_tool": _make("run_action_tool", "Mock action result."),
+        "run_list_slots": _make("run_list_slots", "Mock slots list."),
+        "run_list_appointments": _make("run_list_appointments", "Mock appointments list."),
+        "run_book_appointment": _make("run_book_appointment", "Mock booking result."),
+        "run_book_appointment_by_id": _make("run_book_appointment_by_id", "Booked."),
+        "run_cancel_appointment": _make("run_cancel_appointment", "Mock cancel result."),
+        "run_cancel_appointment_by_id": _make("run_cancel_appointment_by_id", "Cancelled."),
+        "run_reschedule_appointment": _make("run_reschedule_appointment", "Mock reschedule result."),
+        "run_reschedule_appointment_by_id": _make("run_reschedule_appointment_by_id", "Rescheduled."),
+        "run_send_doctor_message": _make("run_send_doctor_message", "Mock message sent."),
+    }
+
+
+def _apply_tracking_mock(tools_exec, tracker):
+    """Patch ToolExecutor instance methods with tracking wrappers.
+    
+    Keeps the real run_action_tool so it can dispatch to tracked sub-methods.
+    """
+    mocks = _make_tracking_mock(tracker)
+    # Don't mock run_action_tool — let the real implementation dispatch
+    # to the tracked sub-methods (run_list_slots, run_book_appointment, etc.)
+    mocks.pop("run_action_tool", None)
+    for attr, fn in mocks.items():
+        setattr(tools_exec, attr, fn)
+
+
 def _prefill_memory(memory: ConversationMemory, history: list[dict]):
     """Inject fake history turns into a ConversationMemory instance."""
     for turn in history:
@@ -146,11 +199,21 @@ def _print_progress(idx, total, turns, desc, raw_tool, predicted, expected, elap
 # ── Agent test functions ────────────────────────────────────────────────────
 
 def test_basic_tools():
-    """AgentManager (basic_tools) — 3-tool agent (ACTION/RAG/LLM)."""
+    """AgentManager (basic_tools) — 3-tool agent, track specific sub-tool via method calls."""
     print("\n[basic_tools] Testing AgentManager with history ...")
     from orchestration.manager_basic_tools import AgentManager
     manager = AgentManager()
-    _mock_tools_exec(manager.tools_exec)
+
+    # Build a deterministic router as fallback for ACTION_GENERIC
+    with patch("orchestration.manager_deterministic.OllamaClient", MagicMock), \
+         patch("orchestration.manager_deterministic.Retriever", MagicMock), \
+         patch("orchestration.manager_deterministic.AppointmentManager", MagicMock), \
+         patch("orchestration.manager_deterministic.MessageManager", MagicMock):
+        from orchestration.manager_deterministic import DeterministicAgentManager
+        det_router = DeterministicAgentManager()
+
+    tracker = {}
+    _apply_tracking_mock(manager.tools_exec, tracker)
 
     all_results = []
     for n_turns, cases in sorted(HISTORY_CASES.items()):
@@ -159,19 +222,24 @@ def test_basic_tools():
             manager._last_tool_used = None
             # Allow the agent to see the full fake history
             manager.max_history_turns = n_turns * 2 + 2  # history + current turn
+            tracker["called"] = None
 
             _prefill_memory(manager.memory, tc["history"])
 
             t0 = time.perf_counter()
             try:
-                result = asyncio.run(manager.process_message(tc["user_query"], "test_user"))
-                raw = result["intent"]
+                asyncio.run(manager.process_message(tc["user_query"], "test_user"))
+                method_called = tracker.get("called")
+                predicted = BASIC_TOOLS_METHOD_MAP.get(method_called, "LLM")
+                # If run_action_tool was the generic entry, use deterministic fallback
+                if predicted == "ACTION_GENERIC":
+                    det_tool, _ = det_router._route(tc["user_query"])
+                    predicted = det_tool
             except Exception as e:
-                raw = f"ERROR:{e}"
+                predicted = f"ERROR:{e}"
             elapsed = time.perf_counter() - t0
 
-            predicted = BASIC_TOOLS_MAP.get(raw, "LLM")
-            expected = EXPECTED_TO_BASIC[tc["expected_tool"]]
+            expected = tc["expected_tool"]
 
             all_results.append({
                 "history_turns": n_turns,
@@ -179,13 +247,14 @@ def test_basic_tools():
                 "message": tc["user_query"],
                 "expected": expected,
                 "predicted": predicted,
-                "raw_tool": raw,
+                "raw_tool": tracker.get("called", "NONE"),
                 "correct": predicted == expected,
                 "time_s": round(elapsed, 4),
             })
             _print_progress(
                 len(all_results), sum(len(c) for c in HISTORY_CASES.values()),
-                n_turns, tc["description"], raw, predicted, expected, elapsed,
+                n_turns, tc["description"], tracker.get("called", "NONE"),
+                predicted, expected, elapsed,
             )
 
     return all_results
@@ -360,7 +429,6 @@ def test_deterministic():
         "RAG": "RAG",
         "LLM": "LLM",
     }
-    DET_TO_BASIC = EXPECTED_TO_BASIC
 
     all_results = []
     for n_turns, cases in sorted(HISTORY_CASES.items()):
@@ -369,9 +437,8 @@ def test_deterministic():
             tool, _reason = manager._route(tc["user_query"])
             elapsed = time.perf_counter() - t0
 
-            predicted_raw = DETERMINISTIC_MAP.get(tool, tool)
-            predicted = DET_TO_BASIC.get(predicted_raw, predicted_raw)
-            expected = DET_TO_BASIC.get(tc["expected_tool"], tc["expected_tool"])
+            predicted = DETERMINISTIC_MAP.get(tool, tool)
+            expected = tc["expected_tool"]
 
             all_results.append({
                 "history_turns": n_turns,

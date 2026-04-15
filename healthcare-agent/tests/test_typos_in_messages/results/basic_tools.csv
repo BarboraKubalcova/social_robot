@@ -1,0 +1,41 @@
+message,expected,predicted,raw_tool,correct,time_s
+"Helo thre, how r you?",LLM,LLM,LLM,True,33.6064
+"Goood mornig, hwo are you doin?",LLM,LLM,LLM,True,68.7722
+Thnk you for yoru hlep,LLM,LLM,LLM,True,34.4674
+Wat is yuor name?,LLM,LLM,LLM,True,31.7171
+"Goodby, se you latre",LLM,LLM,LLM,True,59.6405
+How shoudl I preprae for an MIR?,RAG,RAG,RAG,True,34.159
+Can I waer jewlery durign an MRI?,RAG,RAG,RAG,True,56.0733
+Whta is the fasitng polcy befroe a CT?,RAG,RAG,RAG,True,31.0282
+Hwo does a ultrasond procedur wrk?,RAG,RAG,RAG,True,52.7938
+Can I drnk befroe ultrsound examinaiton?,RAG,RAG,RAG,True,29.5207
+Shwo me avialble sltos,LIST_SLOTS,LLM,LLM,False,31.3681
+Are tehre any fre slots on Moday?,LIST_SLOTS,LLM,LLM,False,40.5056
+Waht tiems can I cme in tihs week?,LIST_SLOTS,LLM,LLM,False,37.5297
+Lst avalable apointment tmes,LIST_SLOTS,LLM,LLM,False,39.4562
+Do you haev any opne slots?,LIST_SLOTS,LLM,LLM,False,47.3864
+Waht apointments do I hve?,LIST_APPOINTMENTS,LLM,LLM,False,71.0592
+Shwo my bokked apointments,LIST_APPOINTMENTS,LLM,LLM,False,36.5079
+Lsit my sceduled apointmnets,LIST_APPOINTMENTS,LLM,LLM,False,88.1422
+Can I se my upcomign apointments?,LIST_APPOINTMENTS,LLM,LLM,False,65.1185
+Dsplay my currnet bokings,LIST_APPOINTMENTS,LLM,LLM,False,33.2721
+Boko me an apointmnet for slot_5,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,33.9842
+I'd liek to scedule slot_12,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,22.315
+Resrve slot_3 for me plese,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,21.9454
+Bok slot_7 plase,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,33.3323
+I wnat to boko an apointment for slot_10,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,27.4942
+Cancle my apointment appt_2,CANCEL_APPOINTMENT,LLM,LLM,False,48.0978
+I ned to cancl apointmnet appt_1,CANCEL_APPOINTMENT,LLM,LLM,False,42.055
+Plese cancle my bokking appt_3,CANCEL_APPOINTMENT,LLM,LLM,False,33.2944
+Cansel appt_2 plz,CANCEL_APPOINTMENT,LLM,LLM,False,26.3663
+Remov my apointmnet appt_1,CANCEL_APPOINTMENT,LLM,LLM,False,27.3199
+Reshedule appt_1 to slot_9,RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,49.7081
+Mve my apointment appt_2 to slot_15,RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,51.2614
+I wnat to chnage appt_3 to slot_20,RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,51.249
+Rescheudle appt_1 to slto_9 plz,RESCHEDULE_APPOINTMENT,LLM,LLM,False,46.5459
+Chagne the tiem of appt_2 to slot_11,RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,58.5481
+Sned a mesage to my doctr sayign I feel unwel,SEND_DOCTOR_MESSAGE,LLM,LLM,False,49.8202
+Tll my docor about my tset resutls,SEND_DOCTOR_MESSAGE,LLM,LLM,False,65.4471
+I wnat to contct my doctro abut my medicaiton,SEND_DOCTOR_MESSAGE,LLM,LLM,False,60.1994
+Sennd a mesage to the doctr plese,SEND_DOCTOR_MESSAGE,LLM,LLM,False,101.7266
+Wrte to my docotr that I hav a fver,SEND_DOCTOR_MESSAGE,LLM,LLM,False,28.794

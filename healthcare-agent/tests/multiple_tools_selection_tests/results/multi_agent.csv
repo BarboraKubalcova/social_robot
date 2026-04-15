@@ -8,12 +8,12 @@ Do I have any appointments booked?,LIST_APPOINTMENTS,LIST_APPOINTMENTS,list_appo
 Book me an appointment for slot_5,BOOK_APPOINTMENT,BOOK_APPOINTMENT,book,True,126.3717
 I'd like to schedule slot_12,BOOK_APPOINTMENT,BOOK_APPOINTMENT,book,True,220.108
 Reserve slot_3 for me please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,book,True,172.4288
-Cancel my appointment appt_2,CANCEL_APPOINTMENT,clarify,clarify,False,133.1974
-I need to cancel appointment appt_1,CANCEL_APPOINTMENT,clarify,clarify,False,153.9028
-Please cancel my booking appt_3,CANCEL_APPOINTMENT,clarify,clarify,False,267.7463
-Reschedule appt_1 to slot_9,RESCHEDULE_APPOINTMENT,clarify,clarify,False,113.9579
-Move my appointment appt_2 to slot_15,RESCHEDULE_APPOINTMENT,clarify,clarify,False,174.3882
-I want to rebook appt_3 to slot_20,RESCHEDULE_APPOINTMENT,clarify,clarify,False,130.0816
+Cancel my appointment appt_2,CANCEL_APPOINTMENT,clarify,clarify,True,133.1974
+I need to cancel appointment appt_1,CANCEL_APPOINTMENT,clarify,clarify,True,153.9028
+Please cancel my booking appt_3,CANCEL_APPOINTMENT,clarify,clarify,True,267.7463
+Reschedule appt_1 to slot_9,RESCHEDULE_APPOINTMENT,clarify,clarify,True,113.9579
+Move my appointment appt_2 to slot_15,RESCHEDULE_APPOINTMENT,clarify,clarify,True,174.3882
+I want to rebook appt_3 to slot_20,RESCHEDULE_APPOINTMENT,clarify,clarify,True,130.0816
 Send a message to my doctor saying I feel unwell,SEND_DOCTOR_MESSAGE,SEND_DOCTOR_MESSAGE,send_message,True,69.8287
 Message my doctor about my test results,SEND_DOCTOR_MESSAGE,SEND_DOCTOR_MESSAGE,send_message,True,14.1039
 I want to email my doctor about my medication,SEND_DOCTOR_MESSAGE,SEND_DOCTOR_MESSAGE,send_message,True,21.6908

@@ -1,0 +1,97 @@
+history_turns,description,message,expected,predicted,raw_tool,correct,time_s
+1,LIST_SLOTS after RAG history (1/3),What is available this week?,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,91.5028
+1,LIST_SLOTS after CANCEL history (2/3),Show me the free slots,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,47.1128
+1,LIST_SLOTS after SEND_DOCTOR_MESSAGE history (3/3),I want to come for a visit. Can you show me when?,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,42.1285
+1,LIST_APPOINTMENTS after BOOK history (1/3),What appointments do I have scheduled?,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,58.6396
+1,LIST_APPOINTMENTS after RAG history (2/3),Show my booked appointments,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,78.2176
+1,LIST_APPOINTMENTS after LLM history (3/3),List my scheduled appointments,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,35.7797
+1,BOOK after LIST_APPOINTMENTS history (1/3),Book me an appointment for slot_12,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,26.2064
+1,BOOK with pronoun 'it' after slot suggestion (2/3),"Yes, book it",BOOK_APPOINTMENT,LLM,,False,39.9006
+1,BOOK after RAG history (3/3),Reserve slot_3 for me please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,28.2346
+1,CANCEL after LIST_SLOTS history (1/3),Cancel my appointment appt_1,CANCEL_APPOINTMENT,LLM,,False,91.0371
+1,CANCEL with pronoun 'it' after confirmation prompt (2/3),"Yes, cancel it",CANCEL_APPOINTMENT,LLM,,False,38.5026
+1,CANCEL after SEND_DOCTOR_MESSAGE history (3/3),Please cancel my booking appt_3,CANCEL_APPOINTMENT,LLM,,False,71.4394
+1,RESCHEDULE after LIST_APPOINTMENTS history (1/3),Reschedule appt_1 to slot_20,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,38.3759
+1,RESCHEDULE with 'it there' after suggestion (2/3),"Yes, move it there",RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,44.553
+1,RESCHEDULE after CANCEL history (3/3),I want to change appt_1 to slot_9,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,61.6722
+1,SEND_DOCTOR_MESSAGE after BOOK history (1/3),Send a message to my doctor saying I feel dizzy,SEND_DOCTOR_MESSAGE,LLM,,False,241.6395
+1,SEND_DOCTOR_MESSAGE after RAG history (2/3),Tell my doctor about my test results,SEND_DOCTOR_MESSAGE,LLM,run_llm_tool,False,198.4188
+1,SEND_DOCTOR_MESSAGE after LIST_APPOINTMENTS history (3/3),I want to contact my doctor about my medication,SEND_DOCTOR_MESSAGE,LLM,,False,212.281
+1,RAG after BOOK history (1/3),How should I prepare for an MRI?,RAG,RAG,run_rag_tool,True,30.9039
+1,RAG with pronoun 'that' referencing CT info (2/3),"Yes, tell me more about that",RAG,RAG,run_rag_tool,True,49.7455
+1,RAG after RESCHEDULE history (3/3),What should I do before an ultrasound examination?,RAG,RAG,run_rag_tool,True,107.8727
+1,LLM after LIST_SLOTS history (1/3),Thank you for your help,LLM,LLM,run_llm_tool,True,82.0825
+1,LLM after CANCEL history (2/3),"Hello, how are you doing?",LLM,LLM,run_llm_tool,True,23.9164
+1,LLM after RAG history (3/3),Tell me a joke,LLM,LLM,run_llm_tool,True,16.4749
+2,LIST_SLOTS after 2-turn RAG history (1/3),What appointment slots are available this week?,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,59.2909
+2,LIST_SLOTS after CANCEL+LLM history (2/3),Show me the free time slots,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,42.6697
+2,LIST_SLOTS after MSG+BOOK history (3/3),Are there any available appointment times left?,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,93.5045
+2,LIST_APPOINTMENTS after LIST_SLOTS+BOOK history (1/3),What appointments do I have scheduled?,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,93.1544
+2,LIST_APPOINTMENTS after 2-turn RAG history (2/3),Show my booked appointments,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,38.3783
+2,LIST_APPOINTMENTS after LLM+MSG history (3/3),Can you list my scheduled appointments?,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,79.8763
+2,BOOK after LIST_APPTS+LIST_SLOTS history (1/3),Book me an appointment for slot_12,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,32.4799
+2,BOOK with 'that one' after slot confirmation (2/3),Yes please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,54.0364
+2,BOOK after CANCEL+RAG history (3/3),Reserve slot_3 for me please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,28.3826
+2,CANCEL after LIST_SLOTS+BOOK history (1/3),Cancel my appointment appt_1,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,run_cancel_appointment,True,55.9464
+2,CANCEL after 2-turn RAG history (2/3),I need to cancel appointment appt_2,CANCEL_APPOINTMENT,LLM,,False,65.7287
+2,CANCEL with 'it' after confirmation prompt (3/3),"Yes, go aheadt",CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,run_cancel_appointment,True,49.3978
+2,RESCHEDULE with 'the 09:30 one' after options (1/3),"Yes, the 09:30 one please",RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,85.0863
+2,RESCHEDULE after 2-turn RAG history (2/3),Move my appointment appt_2 to slot_15,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,47.8763
+2,RESCHEDULE after CANCEL+MSG history (3/3),I want to change appt_1 to slot_9,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,49.6996
+2,SEND_DOCTOR_MESSAGE after LIST_SLOTS+BOOK history (1/3),Send a message to my doctor saying I feel dizzy,SEND_DOCTOR_MESSAGE,LLM,,False,171.7037
+2,SEND_DOCTOR_MESSAGE with 'it' after msg draft (2/3),"Yes, send it",SEND_DOCTOR_MESSAGE,LLM,,False,100.2018
+2,SEND_DOCTOR_MESSAGE after CANCEL+LIST_APPTS history (3/3),I want to contact my doctor about my medication side effects,SEND_DOCTOR_MESSAGE,LLM,,False,276.5522
+2,RAG after BOOK+LIST_APPTS history (1/3),How should I prepare for an MRI?,RAG,RAG,run_rag_tool,True,27.665
+2,RAG after CANCEL+RESCHEDULE history (2/3),Can I wear jewelry during a CT scan?,RAG,RAG,run_rag_tool,True,45.2379
+2,RAG after MSG+LIST_SLOTS history (3/3),What should I do before an ultrasound examination?,RAG,RAG,run_rag_tool,True,27.4579
+2,LLM after LIST_SLOTS+BOOK history (1/3),Thank you so much for your help!,LLM,LLM,run_llm_tool,True,87.7646
+2,LLM after CANCEL+RAG history (2/3),"Good morning, how are you?",LLM,LLM,run_llm_tool,True,141.1413
+2,LLM after RESCHEDULE+MSG history (3/3),What is your name?,LLM,LLM,run_llm_tool,True,35.5582
+3,LIST_SLOTS after RAG+RAG+LLM history (1/3),What appointment slots are available?,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,58.0365
+3,LIST_SLOTS after CANCEL+MSG+BOOK history (2/3),Show me the free slots,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,81.3012
+3,LIST_SLOTS after LLM+LIST_APPTS+RESCHEDULE history (3/3),Are there any open appointment times?,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,79.0578
+3,LIST_APPOINTMENTS after LIST_SLOTS+BOOK+RAG history (1/3),What appointments do I have scheduled?,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,89.6304
+3,LIST_APPOINTMENTS with 'those' after prompt (2/3),"Yes, show me those",LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,62.947
+3,LIST_APPOINTMENTS after CANCEL+BOOK+RAG history (3/3),List my scheduled appointments,LIST_APPOINTMENTS,LLM,,False,90.415
+3,BOOK with 'the 09:30 one' after options (1/3),I'll take the 09:30 one,BOOK_APPOINTMENT,LLM,,False,183.5189
+3,BOOK after RAG+MSG+LIST_SLOTS history (2/3),I'd like to schedule slot_10,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,15.4736
+3,BOOK after RESCHEDULE+RAG+LLM history (3/3),Reserve slot_3 for me please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,25.0808
+3,CANCEL after LIST_SLOTS+BOOK+RAG history (1/3),Cancel my appointment appt_1,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,run_cancel_appointment,True,70.9117
+3,CANCEL with 'it' after disambiguation prompt (2/3),Just cancel it,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,run_cancel_appointment,True,54.4491
+3,CANCEL after LLM+RAG+LIST_APPTS history (3/3),Please cancel my booking appt_2,CANCEL_APPOINTMENT,LLM,,False,26.7356
+3,RESCHEDULE after LIST_APPTS+LIST_SLOTS+LLM history (1/3),Reschedule appt_1 to slot_20,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,51.4254
+3,RESCHEDULE after BOOK+RAG+CANCEL history (2/3),Move my appointment appt_2 to slot_15,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,64.0776
+3,RESCHEDULE with 'it there' after time negotiation (3/3),"The 11:30 one works, reschedule it there",RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,84.7955
+3,SEND_DOCTOR_MESSAGE after LIST_SLOTS+BOOK+RAG history (1/3),Send a message to my doctor saying I feel dizzy,SEND_DOCTOR_MESSAGE,LLM,,False,50.1669
+3,SEND_DOCTOR_MESSAGE after LIST_APPTS+RESCHEDULE+CANCEL history (2/3),Tell my doctor about my allergy to penicillin,SEND_DOCTOR_MESSAGE,LLM,,False,178.0135
+3,SEND_DOCTOR_MESSAGE after RAG+LLM+LIST_APPTS history (3/3),I want to contact my doctor about changing my medication,SEND_DOCTOR_MESSAGE,LLM,,False,32.0934
+3,RAG after BOOK+LIST_APPTS+CANCEL history (1/3),How should I prepare for an MRI?,RAG,RAG,run_rag_tool,True,57.8432
+3,RAG after LLM+LIST_SLOTS+BOOK history (2/3),Can I wear jewelry during a CT scan?,RAG,RAG,run_rag_tool,True,29.5837
+3,RAG after RESCHEDULE+MSG+LLM history (3/3),What should I do before an ultrasound?,RAG,RAG,run_rag_tool,True,27.9498
+3,LLM after LIST_SLOTS+BOOK+RAG history (1/3),Thank you so much for everything!,LLM,LLM,run_llm_tool,True,74.49
+3,LLM after CANCEL+MSG+RAG history (2/3),"Good morning, how are you doing?",LLM,LLM,run_llm_tool,True,27.1909
+3,LLM after LIST_APPTS+RESCHEDULE+BOOK history (3/3),Tell me a joke,LLM,LLM,run_llm_tool,True,12.9491
+4,LIST_SLOTS after RAG+RAG+BOOK+CANCEL history (1/3),What appointment slots are available?,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,95.9913
+4,LIST_SLOTS after LLM+MSG+LIST_APPTS+RESCHEDULE history (2/3),Show me the free time slots,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,130.5719
+4,LIST_SLOTS after CANCEL+RAG+LLM+MSG history (3/3),Are there any available appointment times this week?,LIST_SLOTS,LIST_SLOTS,run_list_slots,True,62.3374
+4,LIST_APPOINTMENTS after LIST_SLOTS+BOOK+RAG+MSG history (1/3),What appointments do I have?,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,116.9481
+4,LIST_APPOINTMENTS after LLM+RAG+RESCHEDULE+CANCEL history (2/3),Show my booked appointments,LIST_APPOINTMENTS,LIST_APPOINTMENTS,run_list_appointments,True,54.7747
+4,LIST_APPOINTMENTS after BOOK+MSG+LIST_SLOTS+RAG history (3/3),List my scheduled appointments,LIST_APPOINTMENTS,LLM,,False,57.2302
+4,BOOK after LIST_APPTS+CANCEL+RAG+LIST_SLOTS history (1/3),Book me an appointment for slot_12,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,33.8959
+4,BOOK with 'go ahead' after slot negotiation (2/3),"Yes, go ahead",BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,48.8542
+4,BOOK after RAG+CANCEL+LIST_APPTS+MSG history (3/3),Reserve slot_3 for me please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,run_book_appointment,True,39.0426
+4,CANCEL with 'that appointment' after digression (1/3),"OK thanks. Yes, go ahead",CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,run_cancel_appointment,True,65.0798
+4,CANCEL after LLM+RAG+BOOK+RESCHEDULE history (2/3),I need to cancel appointment appt_3,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,run_cancel_appointment,True,44.8863
+4,CANCEL after MSG+LIST_APPTS+LIST_SLOTS+RAG history (3/3),Please cancel my booking appt_2,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,run_cancel_appointment,True,80.3843
+4,RESCHEDULE after LIST_APPTS+LIST_SLOTS+LLM+RAG history (1/3),Reschedule appt_1 to slot_20,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,40.9687
+4,RESCHEDULE with 'do that' after negotiation (2/3),"Yes, do that",RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,69.8836
+4,RESCHEDULE after LLM+RAG+LIST_SLOTS+LIST_APPTS history (3/3),I want to change appt_1 to slot_9,RESCHEDULE_APPOINTMENT,RESCHEDULE_APPOINTMENT,run_reschedule_appointment,True,52.6283
+4,SEND_DOCTOR_MESSAGE after LIST_SLOTS+BOOK+RAG+CANCEL history (1/3),Send a message to my doctor saying I feel dizzy and nauseous,SEND_DOCTOR_MESSAGE,LLM,,False,129.3845
+4,SEND_DOCTOR_MESSAGE after LIST_APPTS+RESCHEDULE+RAG+LLM history (2/3),Tell my doctor about my persistent headaches,SEND_DOCTOR_MESSAGE,LLM,,False,196.2158
+4,SEND_DOCTOR_MESSAGE after BOOK+CANCEL+LIST_SLOTS+RAG history (3/3),I want to contact my doctor about my lab results,SEND_DOCTOR_MESSAGE,LLM,,False,189.4189
+4,RAG after BOOK+LIST_APPTS+CANCEL+MSG history (1/3),How should I prepare for an MRI?,RAG,RAG,run_rag_tool,True,35.1593
+4,RAG after LLM+LIST_SLOTS+BOOK+RESCHEDULE history (2/3),Can I wear jewelry during a CT scan?,RAG,RAG,run_rag_tool,True,23.4402
+4,RAG after CANCEL+MSG+LIST_APPTS+LLM history (3/3),What should I do before an ultrasound examination?,RAG,RAG,run_rag_tool,True,35.7068
+4,LLM after LIST_SLOTS+BOOK+RAG+CANCEL history (1/3),Thank you for all your help today!,LLM,LLM,run_llm_tool,True,49.0452
+4,LLM after LIST_APPTS+RESCHEDULE+MSG+RAG history (2/3),"Goodbye, have a great day!",LLM,LLM,run_llm_tool,True,93.172
+4,LLM with 'that's everything' closing (3/3),"No, that's everything, thanks!",LLM,LLM,run_llm_tool,True,76.5898

@@ -1,0 +1,21 @@
+agent,group,message,expected_slot,booked_slot,correct,response,time_s
+multi_agent,direct,Book slot_1 for me please,slot_1,slot_1,True,Appointment booked successfully for slot_1.,209.5086
+multi_agent,direct,I'd like to reserve slot_5,slot_5,slot_5,True,Appointment booked successfully for slot_5.,389.1412
+multi_agent,direct,Schedule me for slot_7,slot_7,slot_7,True,Appointment booked successfully for slot_7.,292.3715
+multi_agent,direct,Can you book slot_12 for me?,slot_12,slot_12,True,Appointment booked successfully for slot_12.,237.2759
+multi_agent,direct,Please book appointment slot_15,slot_15,slot_15,True,Appointment booked successfully for slot_15.,98.1029
+multi_agent,direct,I want slot_18,slot_18,slot_18,True,Appointment booked successfully for slot_18.,269.6609
+multi_agent,direct,Reserve slot_20 please,slot_20,slot_20,True,Appointment booked successfully for slot_20.,255.8963
+multi_agent,direct,Put me down for slot_23,slot_23,slot_23,True,Appointment booked successfully for slot_23.,182.0365
+multi_agent,direct,Book slot_25 for my appointment,slot_25,slot_25,True,Appointment booked successfully for slot_25.,190.3956
+multi_agent,direct,I'd like to book slot_27,slot_27,slot_27,True,Appointment booked successfully for slot_27.,296.5725
+multi_agent,day_time,Book me an appointment on Monday at 9:30,slot_3,slot_3,True,Appointment booked successfully for slot_3.,329.9302
+multi_agent,day_time,I want an appointment on Mon at 14:00,slot_7,slot_7,True,Appointment booked successfully for slot_7.,212.9931
+multi_agent,day_time,Schedule me for Tuesday at 8:30,slot_11,slot_11,True,Appointment booked successfully for slot_11.,213.1998
+multi_agent,day_time,Can I get an appointment on Tuesday at 13:00?,slot_15,slot_15,True,Appointment booked successfully for slot_15.,112.2978
+multi_agent,day_time,Book an appointment for wednesday at 7:30,slot_19,slot_19,True,Appointment booked successfully for slot_19.,182.0151
+multi_agent,day_time,I'd like Wednesday at 10:30 please,slot_22,slot_22,True,Appointment booked successfully for slot_22.,144.5153
+multi_agent,day_time,Reserve me a spot on Mon at 16:00,slot_9,slot_9,True,Appointment booked successfully for slot_9.,160.8073
+multi_agent,day_time,I want to book Tue at 15:00,slot_17,slot_17,True,Appointment booked successfully for slot_17.,59.9641
+multi_agent,day_time,Can you book Wed at 14:00 for me?,slot_25,slot_25,True,Appointment booked successfully for slot_25.,176.0512
+multi_agent,day_time,Schedule an appointment for Monday at 11:30,slot_5,slot_5,True,Appointment booked successfully for slot_5.,169.9363

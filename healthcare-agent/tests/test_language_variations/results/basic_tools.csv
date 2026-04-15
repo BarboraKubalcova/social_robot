@@ -1,0 +1,41 @@
+message,expected,predicted,raw_tool,correct,time_s
+"Good evening, I wish to extend my warmest greetings to you.",LLM,LLM,LLM,True,72.8754
+yo whats up buddy how u doing,LLM,LLM,LLM,True,41.8869
+"Helo, how are yuo todya?",LLM,LLM,LLM,True,60.4356
+"I am having the good day, please to tell me how you are feeling?",LLM,LLM,LLM,True,47.1139
+I just wanted to drop by and say hello and see if you could maybe chat with me for a little while,LLM,LLM,LLM,True,19.22
+I would like to enquire about the preparatory procedures required prior to undergoing an MRI examination.,RAG,RAG,RAG,True,51.1794
+yo what do i gotta do before getting an mri,RAG,RAG,RAG,True,42.0983
+How shoud I prepre for a CT scna?,RAG,RAG,RAG,True,32.1916
+"Please can you explain me what is the procedure for ultrasound, what I must do before?",RAG,RAG,RAG,True,28.7333
+I have an X-ray coming up soon and I was wondering if there are any special instructions or things I should know about how to get ready for it,RAG,RAG,RAG,True,27.2919
+I wish to enquire about the currently available appointment slots.,LIST_SLOTS,LIST_SLOTS,LIST_SLOTS,True,45.1093
+yo got any slots open?,LIST_SLOTS,LLM,LLM,False,53.4913
+Shwo me avalable sltos,LIST_SLOTS,LLM,LLM,False,50.015
+I am wanting to see what times are free for making the appointment please,LIST_SLOTS,LLM,LLM,False,27.2845
+Could you possibly check and let me know which time slots are still available for booking at the moment?,LIST_SLOTS,LIST_SLOTS,LIST_SLOTS,True,35.6773
+I would appreciate it if you could display my currently scheduled appointments.,LIST_APPOINTMENTS,LLM,LLM,False,23.8389
+lemme see my bookings,LIST_APPOINTMENTS,LLM,LLM,False,36.9992
+Shwo my apointments pleae,LIST_APPOINTMENTS,LLM,LLM,False,27.0878
+I need for to see what appointments I am having booked,LIST_APPOINTMENTS,LLM,LLM,False,27.1686
+I was wondering if you could pull up a list of all the appointments that I currently have on my schedule,LIST_APPOINTMENTS,BOOK_APPOINTMENT,BOOK_APPOINTMENT,False,28.2033
+I would like to formally request the reservation of slot_7 for my appointment.,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,25.2504
+yo book me in for slot_7,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,22.0907
+Boko slot_7 for me plase,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,27.5007
+I am wanting to make the booking for slot_7 please,BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,13.4475
+"If it's not too much trouble, I'd really like to go ahead and book slot_7 as my appointment time",BOOK_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,True,26.4696
+I hereby request the cancellation of my appointment appt_2.,CANCEL_APPOINTMENT,LIST_APPOINTMENTS,LIST_APPOINTMENTS,False,32.5295
+cancle appt_2 pls,CANCEL_APPOINTMENT,LLM,LLM,False,21.7241
+Cancl my apointmnet appt_2,CANCEL_APPOINTMENT,LLM,LLM,False,24.7886
+"I need for to remove my appointment appt_2, it is no longer needed",CANCEL_APPOINTMENT,LIST_APPOINTMENTS,LIST_APPOINTMENTS,False,54.5481
+I've been thinking about it and I've decided that I really need to go ahead and cancel my appointment appt_2,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,CANCEL_APPOINTMENT,True,34.7703
+I would like to formally request that appointment appt_1 be rescheduled to slot_9.,RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,False,46.4792
+move appt_1 to slot_9 yeah?,RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,False,32.6395
+Rescheudle appt_1 to slto_9 plz,RESCHEDULE_APPOINTMENT,LLM,LLM,False,47.755
+"I am needing to change the time of appt_1, please to put it in slot_9",RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,False,56.4784
+"I was hoping you could help me move my existing appointment appt_1 over to a different time, specifically slot_9 if that works",RESCHEDULE_APPOINTMENT,BOOK_APPOINTMENT,BOOK_APPOINTMENT,False,28.9175
+I wish to compose and transmit a message to my physician regarding my current symptoms.,SEND_DOCTOR_MESSAGE,LLM,LLM,False,99.0871
+tell my doc i aint feeling great,SEND_DOCTOR_MESSAGE,LLM,LLM,False,95.1955
+Sennd a mesage to my doctr about my headaces,SEND_DOCTOR_MESSAGE,LLM,LLM,False,37.9784
+I am wanting for to write the message to my doctor because I have the problem with medicine,SEND_DOCTOR_MESSAGE,LLM,LLM,False,138.5205
+Could you please help me get in touch with my doctor by sending them a message about how I've been feeling lately,SEND_DOCTOR_MESSAGE,LLM,LLM,False,93.1946
